@@ -840,6 +840,22 @@ void exit_tasks_rcu_finish(void)
 	preempt_enable();
 }
 
+/* Do the srcu_read_lock() for the above synchronize_srcu().  */
+void exit_tasks_rcu_start(void)
+{
+	preempt_disable();
+	current->rcu_tasks_idx = __srcu_read_lock(&tasks_rcu_exit_srcu);
+	preempt_enable();
+}
+
+/* Do the srcu_read_unlock() for the above synchronize_srcu().  */
+void exit_tasks_rcu_finish(void)
+{
+	preempt_disable();
+	__srcu_read_unlock(&tasks_rcu_exit_srcu, current->rcu_tasks_idx);
+	preempt_enable();
+}
+
 #endif /* #ifdef CONFIG_TASKS_RCU */
 
 #ifndef CONFIG_TINY_RCU
