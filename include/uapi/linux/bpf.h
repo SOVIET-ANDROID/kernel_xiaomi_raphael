@@ -630,6 +630,12 @@ union bpf_attr {
  *	@key: key to insert/update sock in map
  *	@flags: same flags as map update elem
  *
+ * int bpf_xdp_adjust_meta(xdp_md, delta)
+ *     Adjust the xdp_md.data_meta by delta
+ *     @xdp_md: pointer to xdp_md
+ *     @delta: An positive/negative integer to be added to xdp_md.data_meta
+ *     Return: 0 on success or negative on error
+ *
  * int skb_load_bytes_relative(const struct sk_buff *skb, u32 offset, void *to, u32 len, u32 start_header)
  * 	Description
  * 		This helper is similar to **bpf_skb_load_bytes**\ () in that
@@ -864,7 +870,7 @@ struct __sk_buff {
 	__u32 data_end;
 	__u32 napi_id;
 
-	/* accessed by BPF_PROG_TYPE_sk_skb types */
+	/* Accessed by BPF_PROG_TYPE_sk_skb types from here to ... */
 	__u32 family;
 	__u32 remote_ip4;	/* Stored in network byte order */
 	__u32 local_ip4;	/* Stored in network byte order */
@@ -872,6 +878,9 @@ struct __sk_buff {
 	__u32 local_ip6[4];	/* Stored in network byte order */
 	__u32 remote_port;	/* Stored in network byte order */
 	__u32 local_port;	/* stored in host byte order */
+	/* ... here. */
+
+	__u32 data_meta;
 };
 
 struct bpf_tunnel_key {
@@ -932,6 +941,7 @@ enum xdp_action {
 struct xdp_md {
 	__u32 data;
 	__u32 data_end;
+	__u32 data_meta;
 };
 
 enum sk_action {
