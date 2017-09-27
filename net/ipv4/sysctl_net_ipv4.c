@@ -297,11 +297,6 @@ static int proc_tcp_fastopen_key(struct ctl_table *ctl, int write,
 			ret = -EINVAL;
 			goto bad_key;
 		}
-		/* Generate a dummy secret but don't publish it. This
-		 * is needed so we don't regenerate a new key on the
-		 * first invocation of tcp_fastopen_cookie_gen
-		 */
-		tcp_fastopen_init_key_once(false);
 
 		for (i = 0; i < ARRAY_SIZE(user_key); i++)
 			key[i] = cpu_to_le32(user_key[i]);
