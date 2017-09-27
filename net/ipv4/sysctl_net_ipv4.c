@@ -262,10 +262,12 @@ static int proc_allowed_congestion_control(struct ctl_table *ctl,
 	return ret;
 }
 
-static int proc_tcp_fastopen_key(struct ctl_table *ctl, int write,
+static int proc_tcp_fastopen_key(struct ctl_table *table, int write,
 				 void __user *buffer, size_t *lenp,
 				 loff_t *ppos)
 {
+	struct net *net = container_of(table->data, struct net,
+	    ipv4.sysctl_tcp_fastopen);
 	struct ctl_table tbl = { .maxlen = (TCP_FASTOPEN_KEY_LENGTH * 2 + 10) };
 	struct tcp_fastopen_context *ctxt;
 	u32  user_key[4]; /* 16 bytes, matching TCP_FASTOPEN_KEY_LENGTH */
@@ -277,7 +279,7 @@ static int proc_tcp_fastopen_key(struct ctl_table *ctl, int write,
 		return -ENOMEM;
 
 	rcu_read_lock();
-	ctxt = rcu_dereference(tcp_fastopen_ctx);
+	ctxt = rcu_dereference(net->ipv4.tcp_fastopen_ctx);
 	if (ctxt)
 		memcpy(key, ctxt->key, TCP_FASTOPEN_KEY_LENGTH);
 	else
@@ -301,7 +303,7 @@ static int proc_tcp_fastopen_key(struct ctl_table *ctl, int write,
 		for (i = 0; i < ARRAY_SIZE(user_key); i++)
 			key[i] = cpu_to_le32(user_key[i]);
 
-		tcp_fastopen_reset_cipher(key, TCP_FASTOPEN_KEY_LENGTH);
+		tcp_fastopen_reset_cipher(net, key, TCP_FASTOPEN_KEY_LENGTH);
 	}
 
 bad_key:
@@ -358,12 +360,6 @@ static struct ctl_table ipv4_table[] = {
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec
-	},
-	{
-		.procname	= "tcp_fastopen_key",
-		.mode		= 0600,
-		.maxlen		= ((TCP_FASTOPEN_KEY_LENGTH * 2) + 10),
-		.proc_handler	= proc_tcp_fastopen_key,
 	},
 	{
 		.procname	= "tcp_fastopen_blackhole_timeout_sec",
@@ -1071,6 +1067,13 @@ static struct ctl_table ipv4_net_table[] = {
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
+	},
+	{
+		.procname	= "tcp_fastopen_key",
+		.mode		= 0600,
+		.data		= &init_net.ipv4.sysctl_tcp_fastopen,
+		.maxlen		= ((TCP_FASTOPEN_KEY_LENGTH * 2) + 10),
+		.proc_handler	= proc_tcp_fastopen_key,
 	},
 #ifdef CONFIG_IP_ROUTE_MULTIPATH
 	{
