@@ -2364,7 +2364,8 @@ static struct rt6_info *addrconf_get_prefix_route(const struct in6_addr *pfx,
 			continue;
 		if ((rt->rt6i_flags & noflags) != 0)
 			continue;
-		dst_hold(&rt->dst);
+		if (!dst_hold_safe(&rt->dst))
+			rt = NULL;
 		break;
 	}
 out:
