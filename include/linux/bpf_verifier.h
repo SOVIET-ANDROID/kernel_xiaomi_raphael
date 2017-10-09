@@ -175,6 +175,8 @@ struct bpf_verifier_env {
 	bool allow_ptr_leaks;
 	bool seen_direct_write;
 	struct bpf_insn_aux_data *insn_aux_data; /* array of per-insn state */
+
+	struct bpf_verifer_log log;
 };
 
 static inline struct bpf_reg_state *cur_regs(struct bpf_verifier_env *env)
