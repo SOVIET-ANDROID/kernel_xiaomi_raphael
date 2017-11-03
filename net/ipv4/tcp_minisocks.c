@@ -538,6 +538,10 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
 		newtp->syn_data_acked = 0;
 		newtp->rack.mstamp = 0;
 		newtp->rack.advanced = 0;
+		newtp->rack.reo_wnd_steps = 1;
+		newtp->rack.last_delivered = 0;
+		newtp->rack.reo_wnd_persist = 0;
+		newtp->rack.dsack_seen = 0;
 
 		tcp_bpf_clone(sk, newsk);
 
