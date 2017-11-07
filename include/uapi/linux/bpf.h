@@ -678,6 +678,10 @@ union bpf_attr {
  *     @buf_size: size of the buf
  *     Return : 0 on success or negative error code
  *
+ * int bpf_override_return(pt_regs, rc)
+ *      @pt_regs: pointer to struct pt_regs
+ *      @rc: the return value to set
+ *
  * int skb_load_bytes_relative(const struct sk_buff *skb, u32 offset, void *to, u32 len, u32 start_header)
  * 	Description
  * 		This helper is similar to **bpf_skb_load_bytes**\ () in that
