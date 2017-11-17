@@ -697,7 +697,7 @@ asmlinkage __visible void __init start_kernel(void)
 
 	arch_cpu_finalize_init();
 
-	pidmap_init();
+	pid_idr_init();
 	anon_vma_init();
 	acpi_early_init();
 #ifdef CONFIG_X86
