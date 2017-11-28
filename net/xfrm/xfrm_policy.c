@@ -1646,7 +1646,7 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
 	}
 
 	xfrm_dst_set_child(xdst_prev, dst);
-	xdst0->u.dst.path = dst;
+	xdst0->path = dst;
 
 	err = -ENODEV;
 	dev = dst->dev;
@@ -1788,8 +1788,8 @@ static void xfrm_policy_queue_process(unsigned long arg)
 	xfrm_decode_session(skb, &fl, dst->ops->family);
 	spin_unlock(&pq->hold_queue.lock);
 
-	dst_hold(dst->path);
-	dst = xfrm_lookup(net, dst->path, &fl, sk, 0);
+	dst_hold(xfrm_dst_path(dst));
+	dst = xfrm_lookup(net, xfrm_dst_path(dst), &fl, sk, 0);
 	if (IS_ERR(dst))
 		goto purge_queue;
 
@@ -1818,8 +1818,8 @@ static void xfrm_policy_queue_process(unsigned long arg)
 		skb = __skb_dequeue(&list);
 
 		xfrm_decode_session(skb, &fl, skb_dst(skb)->ops->family);
-		dst_hold(skb_dst(skb)->path);
-		dst = xfrm_lookup(net, skb_dst(skb)->path, &fl, skb->sk, 0);
+		dst_hold(xfrm_dst_path(skb_dst(skb)));
+		dst = xfrm_lookup(net, xfrm_dst_path(skb_dst(skb)), &fl, skb->sk, 0);
 		if (IS_ERR(dst)) {
 			kfree_skb(skb);
 			continue;
@@ -1921,7 +1921,7 @@ static struct xfrm_dst *xfrm_create_dummy_bundle(struct net *net,
 
 	dst_hold(dst);
 	xfrm_dst_set_child(xdst, dst);
-	dst1->path = dst;
+	xdst->path = dst;
 
 	xfrm_init_path((struct xfrm_dst *)dst1, dst, 0);
 
@@ -2586,7 +2586,7 @@ static int xfrm_bundle_ok(struct xfrm_dst *first)
 	struct xfrm_dst *last;
 	u32 mtu;
 
-	if (!dst_check(dst->path, ((struct xfrm_dst *)dst)->path_cookie) ||
+	if (!dst_check(xfrm_dst_path(dst), ((struct xfrm_dst *)dst)->path_cookie) ||
 	    (dst->dev && !netif_running(dst->dev)))
 		return 0;
 
@@ -2647,22 +2647,20 @@ static int xfrm_bundle_ok(struct xfrm_dst *first)
 
 static unsigned int xfrm_default_advmss(const struct dst_entry *dst)
 {
-	return dst_metric_advmss(dst->path);
+	return dst_metric_advmss(xfrm_dst_path(dst));
 }
 
 static unsigned int xfrm_mtu(const struct dst_entry *dst)
 {
 	unsigned int mtu = dst_metric_raw(dst, RTAX_MTU);
 
-	return mtu ? : dst_mtu(dst->path);
+	return mtu ? : dst_mtu(xfrm_dst_path(dst));
 }
 
 static const void *xfrm_get_dst_nexthop(const struct dst_entry *dst,
 					const void *daddr)
 {
-	const struct dst_entry *path = dst->path;
-
-	for (; dst != path; dst = xfrm_dst_child(dst)) {
+	while (dst->xfrm) {
 		const struct xfrm_state *xfrm = dst->xfrm;
 
 		if (xfrm->props.mode == XFRM_MODE_TRANSPORT)
@@ -2671,6 +2669,8 @@ static const void *xfrm_get_dst_nexthop(const struct dst_entry *dst,
 			daddr = xfrm->coaddr;
 		else if (!(xfrm->type->flags & XFRM_TYPE_LOCAL_COADDR))
 			daddr = &xfrm->id.daddr;
+
+		dst = xfrm_dst_child(dst);
 	}
 	return daddr;
 }
@@ -2679,7 +2679,7 @@ static struct neighbour *xfrm_neigh_lookup(const struct dst_entry *dst,
 					   struct sk_buff *skb,
 					   const void *daddr)
 {
-	const struct dst_entry *path = dst->path;
+	const struct dst_entry *path = xfrm_dst_path(dst);
 
 	if (!skb)
 		daddr = xfrm_get_dst_nexthop(dst, daddr);
@@ -2688,7 +2688,7 @@ static struct neighbour *xfrm_neigh_lookup(const struct dst_entry *dst,
 
 static void xfrm_confirm_neigh(const struct dst_entry *dst, const void *daddr)
 {
-	const struct dst_entry *path = dst->path;
+	const struct dst_entry *path = xfrm_dst_path(dst);
 
 	daddr = xfrm_get_dst_nexthop(dst, daddr);
 	path->ops->confirm_neigh(path, daddr);
