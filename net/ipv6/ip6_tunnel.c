@@ -879,7 +879,7 @@ int ip6_tnl_rcv(struct ip6_tnl *t, struct sk_buff *skb,
 	if (tpi->proto == htons(ETH_P_IP))
 		dscp_ecn_decapsulate = ip4ip6_dscp_ecn_decapsulate;
 
-	return __ip6_tnl_rcv(t, skb, tpi, NULL, dscp_ecn_decapsulate,
+	return __ip6_tnl_rcv(t, skb, tpi, tun_dst, dscp_ecn_decapsulate,
 			     log_ecn_err);
 }
 EXPORT_SYMBOL(ip6_tnl_rcv);
@@ -997,6 +997,9 @@ int ip6_tnl_xmit_ctl(struct ip6_tnl *t,
 	struct __ip6_tnl_parm *p = &t->parms;
 	int ret = 0;
 	struct net *net = t->net;
+
+	if (t->parms.collect_md)
+		return 1;
 
 	if ((p->flags & IP6_TNL_F_CAP_XMIT) ||
 	    ((p->flags & IP6_TNL_F_CAP_PER_PACKET) &&
