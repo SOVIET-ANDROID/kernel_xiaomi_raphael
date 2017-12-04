@@ -15,6 +15,7 @@ generic-y += sembuf.h
 generic-y += shmbuf.h
 generic-y += socket.h
 generic-y += sockios.h
+generic-y += bpf_perf_event.h
 generic-y += swab.h
 generic-y += termbits.h
 generic-y += termios.h
