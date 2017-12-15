@@ -1534,6 +1534,23 @@ static int update_stack_depth(struct bpf_verifier_env *env,
 	return 0;
 }
 
+#ifndef CONFIG_BPF_JIT_ALWAYS_ON
+static int get_callee_stack_depth(struct bpf_verifier_env *env,
+				  const struct bpf_insn *insn, int idx)
+{
+	int start = idx + insn->imm + 1, subprog;
+
+	subprog = find_subprog(env, start);
+	if (subprog < 0) {
+		WARN_ONCE(1, "verifier bug. No program starts at insn %d\n",
+			  start);
+		return -EFAULT;
+	}
+	subprog++;
+	return env->subprog_stack_depth[subprog];
+}
+#endif
+
 static int check_ctx_reg(struct bpf_verifier_env *env,
 			 const struct bpf_reg_state *reg, int regno)
 {
@@ -5481,6 +5498,28 @@ static int convert_ctx_accesses(struct bpf_verifier_env *env)
 	return 0;
 }
 
+static int fixup_call_args(struct bpf_verifier_env *env)
+{
+#ifndef CONFIG_BPF_JIT_ALWAYS_ON
+	struct bpf_prog *prog = env->prog;
+	struct bpf_insn *insn = prog->insnsi;
+	int i, depth;
+#endif
+
+#ifndef CONFIG_BPF_JIT_ALWAYS_ON
+	for (i = 0; i < prog->len; i++, insn++) {
+		if (insn->code != (BPF_JMP | BPF_CALL) ||
+		    insn->src_reg != BPF_PSEUDO_CALL)
+			continue;
+		depth = get_callee_stack_depth(env, insn, i);
+		if (depth < 0)
+			return depth;
+		bpf_patch_call_args(insn, depth);
+	}
+#endif
+	return 0;
+}
+
 /* fixup insn->imm field of bpf_call instructions
  * and inline eligible helpers as explicit sequence of BPF instructions
  *
@@ -5831,6 +5870,9 @@ skip_full_check:
 
 	if (ret == 0)
 		ret = fixup_bpf_calls(env);
+
+	if (ret == 0)
+		ret = fixup_call_args(env);
 
 	if (log->level && bpf_verifier_log_full(log))
 		ret = -ENOSPC;
