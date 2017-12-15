@@ -156,6 +156,7 @@ struct bpf_insn_aux_data {
 	union {
 		enum bpf_reg_type ptr_type;	/* pointer type for load/store insns */
 		struct bpf_map *map_ptr;	/* pointer for call insn into lookup_elem */
+		s32 call_imm;			/* saved imm field of call insn */
 		u32 alu_limit;			/* limit for add/sub register with pointer */
 	};
 	int ctx_field_size; /* the ctx field size for load insn, maybe 0 */
