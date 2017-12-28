@@ -216,6 +216,7 @@ struct bpf_prog_aux {
 	u32 stack_depth;
 	u32 id;
 	u32 func_cnt;
+	bool offload_requested;
 	struct bpf_prog **func;
 	void *jit_data; /* JIT specific data. arch dependent */
 	struct latch_tree_node ksym_tnode;
@@ -566,7 +567,7 @@ int bpf_prog_offload_init(struct bpf_prog *prog, union bpf_attr *attr);
 
 static inline bool bpf_prog_is_dev_bound(struct bpf_prog_aux *aux)
 {
-	return aux->offload;
+	return aux->offload_requested;
 }
 #else
 static inline int bpf_prog_offload_init(struct bpf_prog *prog,
