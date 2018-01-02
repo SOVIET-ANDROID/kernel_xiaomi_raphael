@@ -45,7 +45,11 @@ static struct sighand_struct init_sighand = {
 };
 
 /* Initial task structure */
-struct task_struct init_task = INIT_TASK(init_task);
+struct task_struct init_task
+#ifdef CONFIG_ARCH_TASK_STRUCT_ON_STACK
+	__init_task_data
+#endif
+	= INIT_TASK(init_task);
 EXPORT_SYMBOL(init_task);
 
 #ifdef CONFIG_SHADOW_CALL_STACK
@@ -59,8 +63,6 @@ unsigned long init_shadow_call_stack[SCS_SIZE / sizeof(long)] __init_task_data
  * Initial thread structure. Alignment of this is handled by a special
  * linker map entry.
  */
-union thread_union init_thread_union __init_task_data = {
 #ifndef CONFIG_THREAD_INFO_IN_TASK
-	INIT_THREAD_INFO(init_task)
+struct thread_info init_thread_info __init_thread_info = INIT_THREAD_INFO(init_task);
 #endif
-};
