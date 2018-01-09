@@ -794,12 +794,6 @@ insert_above:
 	return ln;
 }
 
-static bool rt6_qualify_for_ecmp(struct rt6_info *rt)
-{
-	return (rt->rt6i_flags & (RTF_GATEWAY|RTF_ADDRCONF|RTF_DYNAMIC)) ==
-	       RTF_GATEWAY;
-}
-
 static void fib6_copy_metrics(u32 *mp, const struct mx6_config *mxc)
 {
 	int i;
@@ -989,6 +983,7 @@ next_iter:
 			rt6i_nsiblings++;
 		}
 		BUG_ON(rt6i_nsiblings != rt->rt6i_nsiblings);
+		rt6_multipath_rebalance(temp_sibling);
 	}
 
 	/*
@@ -1662,6 +1657,7 @@ static void fib6_del_route(struct fib6_table *table, struct fib6_node *fn,
 			sibling->rt6i_nsiblings--;
 		rt->rt6i_nsiblings = 0;
 		list_del_init(&rt->rt6i_siblings);
+		rt6_multipath_rebalance(next_sibling);
 	}
 
 	/* Adjust walkers */
