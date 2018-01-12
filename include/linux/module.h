@@ -19,6 +19,7 @@
 #include <linux/jump_label.h>
 #include <linux/export.h>
 #include <linux/rbtree_latch.h>
+#include <linux/error-injection.h>
 #include <linux/cfi.h>
 #include <linux/srcu.h>
 
@@ -492,8 +493,8 @@ struct module {
 #endif
 
 #ifdef CONFIG_FUNCTION_ERROR_INJECTION
+	struct error_injection_entry *ei_funcs;
 	unsigned int num_ei_funcs;
-	unsigned long *ei_funcs;
 #endif
 } ____cacheline_aligned __randomize_layout;
 #ifndef MODULE_ARCH_INIT
