@@ -14,7 +14,7 @@
 #include <linux/uaccess.h>
 #include <linux/ctype.h>
 #include <linux/kprobes.h>
-#include <asm/kprobes.h>
+#include <linux/error-injection.h>
 
 #include "trace_probe.h"
 #include "trace.h"
@@ -85,7 +85,7 @@ BPF_CALL_2(bpf_override_return, struct pt_regs *, regs, unsigned long, rc)
 {
 	__this_cpu_write(bpf_kprobe_override, 1);
 	regs_set_return_value(regs, rc);
-	arch_ftrace_kprobe_override_function(regs);
+	override_function_with_return(regs);
 	return 0;
 }
 

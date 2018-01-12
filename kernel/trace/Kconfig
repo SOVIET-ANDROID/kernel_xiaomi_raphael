@@ -561,7 +561,7 @@ config BPF_KPROBE_OVERRIDE
 	bool "Enable BPF programs to override a kprobed function"
 	depends on BPF_EVENTS
 	depends on KPROBES_ON_FTRACE
-	depends on HAVE_KPROBE_OVERRIDE
+	depends on FUNCTION_ERROR_INJECTION
 	depends on DYNAMIC_FTRACE_WITH_REGS
 	default n
 	help
