@@ -4,7 +4,7 @@
 # link vmlinux
 #
 # vmlinux is linked from the objects selected by $(KBUILD_VMLINUX_INIT) and
-# $(KBUILD_VMLINUX_MAIN) and $(KBUILD_VMLINUX_LIBS). Most are built-in.o files
+# $(KBUILD_VMLINUX_MAIN) and $(KBUILD_VMLINUX_LIBS). Most are built-in.a files
 # from top-level directories in the kernel tree, others are specified in
 # arch/$(ARCH)/Makefile. Ordering when linking is important, and
 # $(KBUILD_VMLINUX_INIT) must be first. $(KBUILD_VMLINUX_LIBS) are archives
@@ -18,7 +18,7 @@
 #   |   +--< init/version.o + more
 #   |
 #   +--< $(KBUILD_VMLINUX_MAIN)
-#   |    +--< drivers/built-in.o mm/built-in.o + more
+#   |    +--< drivers/built-in.a mm/built-in.a + more
 #   |
 #   +--< $(KBUILD_VMLINUX_LIBS)
 #   |    +--< lib/lib.a + more
@@ -51,20 +51,20 @@ info()
 #
 # Traditional incremental style of link does not require this step
 #
-# built-in.o output file
+# built-in.a output file
 #
 archive_builtin()
 {
-	info AR built-in.o
-	rm -f built-in.o;
-	${AR} rcsTP${KBUILD_ARFLAGS} built-in.o			\
+	info AR built-in.a
+	rm -f built-in.a;
+	${AR} rcsTP${KBUILD_ARFLAGS} built-in.a			\
 				${KBUILD_VMLINUX_INIT}		\
 				${KBUILD_VMLINUX_MAIN}
 
 	if [ -n "${CONFIG_LTO_CLANG}" ]; then
-		mv -f built-in.o built-in.o.tmp
-		${LLVM_AR} rcsT${KBUILD_ARFLAGS} built-in.o $(${AR} t built-in.o.tmp)
-		rm -f built-in.o.tmp
+		mv -f built-in.a built-in.a.tmp
+		${LLVM_AR} rcsT${KBUILD_ARFLAGS} built-in.a $(${AR} t built-in.a.tmp)
+		rm -f built-in.a.tmp
 	fi
 }
 
@@ -78,11 +78,11 @@ lto_lds()
 	fi
 
 	${srctree}/scripts/generate_initcall_order.pl \
-		built-in.o ${KBUILD_VMLINUX_LIBS} \
+		built-in.a ${KBUILD_VMLINUX_LIBS} \
 		> .tmp_lto.lds
 
 	if [ -n "${CONFIG_MODVERSIONS}" ]; then
-		for a in built-in.o ${KBUILD_VMLINUX_LIBS}; do
+		for a in built-in.a ${KBUILD_VMLINUX_LIBS}; do
 			for o in $(${AR} t $a); do
 				if [ -f ${o}.symversions ]; then
 					cat ${o}.symversions >> .tmp_lto.lds
@@ -101,7 +101,7 @@ modpost_link()
 	local objects
 
 	objects="--whole-archive				\
-		built-in.o					\
+		built-in.a					\
 		--no-whole-archive				\
 		--start-group					\
 		${KBUILD_VMLINUX_LIBS}				\
@@ -150,7 +150,7 @@ vmlinux_link()
 
 		if [ -z "${CONFIG_LTO_CLANG}" ]; then
 			objects="--whole-archive		\
-				built-in.o			\
+				built-in.a			\
 				--no-whole-archive		\
 				--start-group			\
 				${KBUILD_VMLINUX_LIBS}		\
@@ -167,7 +167,7 @@ vmlinux_link()
 			-T ${lds} ${objects}
 	else
 		objects="-Wl,--whole-archive			\
-			built-in.o				\
+			built-in.a				\
 			-Wl,--no-whole-archive			\
 			-Wl,--start-group			\
 			${KBUILD_VMLINUX_LIBS}			\
@@ -294,7 +294,7 @@ cleanup()
 	rm -f .tmp_version
 	rm -f .tmp_lto.lds
 	rm -f .tmp_vmlinux*
-	rm -f built-in.o
+	rm -f built-in.a
 	rm -f System.map
 	rm -f vmlinux
 	rm -f vmlinux.o
