@@ -55,18 +55,16 @@ info()
 #
 archive_builtin()
 {
-	if [ -n "${CONFIG_THIN_ARCHIVES}" ]; then
-		info AR built-in.o
-		rm -f built-in.o;
-		${AR} rcsTP${KBUILD_ARFLAGS} built-in.o			\
-					${KBUILD_VMLINUX_INIT}		\
-					${KBUILD_VMLINUX_MAIN}
+	info AR built-in.o
+	rm -f built-in.o;
+	${AR} rcsTP${KBUILD_ARFLAGS} built-in.o			\
+				${KBUILD_VMLINUX_INIT}		\
+				${KBUILD_VMLINUX_MAIN}
 
-		if [ -n "${CONFIG_LTO_CLANG}" ]; then
-			mv -f built-in.o built-in.o.tmp
-			${LLVM_AR} rcsT${KBUILD_ARFLAGS} built-in.o $(${AR} t built-in.o.tmp)
-			rm -f built-in.o.tmp
-		fi
+	if [ -n "${CONFIG_LTO_CLANG}" ]; then
+		mv -f built-in.o built-in.o.tmp
+		${LLVM_AR} rcsT${KBUILD_ARFLAGS} built-in.o $(${AR} t built-in.o.tmp)
+		rm -f built-in.o.tmp
 	fi
 }
 
@@ -102,20 +100,12 @@ modpost_link()
 {
 	local objects
 
-	if [ -n "${CONFIG_THIN_ARCHIVES}" ]; then
-		objects="--whole-archive				\
-			built-in.o					\
-			--no-whole-archive				\
-			--start-group					\
-			${KBUILD_VMLINUX_LIBS}				\
-			--end-group"
-	else
-		objects="${KBUILD_VMLINUX_INIT}				\
-			--start-group					\
-			${KBUILD_VMLINUX_MAIN}				\
-			${KBUILD_VMLINUX_LIBS}				\
-			--end-group"
-	fi
+	objects="--whole-archive				\
+		built-in.o					\
+		--no-whole-archive				\
+		--start-group					\
+		${KBUILD_VMLINUX_LIBS}				\
+		--end-group"
 
 	if [ -n "${CONFIG_LTO_CLANG}" ]; then
 		# This might take a while, so indicate that we're doing
@@ -158,45 +148,35 @@ vmlinux_link()
 			ldflags="${LDFLAGS_FINAL_vmlinux} ${LDFLAGS_vmlinux}"
 		fi
 
-		if [[ -n "${CONFIG_THIN_ARCHIVES}" && -z "${CONFIG_LTO_CLANG}" ]]; then
-			objects="--whole-archive 			\
-				built-in.o				\
-				--no-whole-archive			\
-				--start-group				\
-				${KBUILD_VMLINUX_LIBS}			\
-				--end-group				\
+		if [ -z "${CONFIG_LTO_CLANG}" ]; then
+			objects="--whole-archive		\
+				built-in.o			\
+				--no-whole-archive		\
+				--start-group			\
+				${KBUILD_VMLINUX_LIBS}		\
+				--end-group			\
 				${@:2}"
 		else
-			objects="${KBUILD_VMLINUX_INIT}			\
-				--start-group				\
-				${KBUILD_VMLINUX_MAIN}			\
-				${KBUILD_VMLINUX_LIBS}			\
-				--end-group				\
+			objects="--start-group			\
+				vmlinux.o			\
+				--end-group			\
 				${@:2}"
 		fi
 
-		${ld} ${ldflags} -o ${1} -T ${lds} ${objects}
+		${LD} ${LDFLAGS} ${LDFLAGS_vmlinux} -o ${1}	\
+			-T ${lds} ${objects}
 	else
-		if [ -n "${CONFIG_THIN_ARCHIVES}" ]; then
-			objects="-Wl,--whole-archive			\
-				built-in.o				\
-				-Wl,--no-whole-archive			\
-				-Wl,--start-group			\
-				${KBUILD_VMLINUX_LIBS}			\
-				-Wl,--end-group				\
-				${@:2}"
-		else
-			objects="${KBUILD_VMLINUX_INIT}			\
-				-Wl,--start-group			\
-				${KBUILD_VMLINUX_MAIN}			\
-				${KBUILD_VMLINUX_LIBS}			\
-				-Wl,--end-group				\
-				${@:2}"
-		fi
+		objects="-Wl,--whole-archive			\
+			built-in.o				\
+			-Wl,--no-whole-archive			\
+			-Wl,--start-group			\
+			${KBUILD_VMLINUX_LIBS}			\
+			-Wl,--end-group				\
+			${@:2}"
 
-		${CC} ${CFLAGS_vmlinux} -o ${1}				\
-			-Wl,-T,${lds}					\
-			${objects}					\
+		${CC} ${CFLAGS_vmlinux} -o ${1}			\
+			-Wl,-T,${lds}				\
+			${objects}				\
 			-lutil -lrt -lpthread
 		rm -f linux
 	fi
