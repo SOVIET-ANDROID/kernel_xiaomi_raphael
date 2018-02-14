@@ -1755,19 +1755,6 @@ static void ip_handle_martian_source(struct net_device *dev,
 #endif
 }
 
-static void set_lwt_redirect(struct rtable *rth)
-{
-	if (lwtunnel_output_redirect(rth->dst.lwtstate)) {
-		rth->dst.lwtstate->orig_output = rth->dst.output;
-		rth->dst.output = lwtunnel_output;
-	}
-
-	if (lwtunnel_input_redirect(rth->dst.lwtstate)) {
-		rth->dst.lwtstate->orig_input = rth->dst.input;
-		rth->dst.input = lwtunnel_input;
-	}
-}
-
 /* called in rcu_read_lock() section */
 static int __mkroute_input(struct sk_buff *skb,
 			   const struct fib_result *res,
@@ -1848,7 +1835,7 @@ static int __mkroute_input(struct sk_buff *skb,
 
 	rt_set_nexthop(rth, daddr, res, fnhe, res->fi, res->type, itag,
 		       do_cache);
-	set_lwt_redirect(rth);
+	lwtunnel_set_redirect(&rth->dst);
 	skb_dst_set(skb, &rth->dst);
 out:
 	err = 0;
@@ -2363,7 +2350,7 @@ add:
 	}
 
 	rt_set_nexthop(rth, fl4->daddr, res, fnhe, fi, type, 0, do_cache);
-	set_lwt_redirect(rth);
+	lwtunnel_set_redirect(&rth->dst);
 
 	return rth;
 }
