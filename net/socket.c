@@ -1901,8 +1901,8 @@ out_put:
  *	to pass a user mode parameter for the protocols to sort out.
  */
 
-SYSCALL_DEFINE5(getsockopt, int, fd, int, level, int, optname,
-		char __user *, optval, int __user *, optlen)
+static int __sys_getsockopt(int fd, int level, int optname,
+			    char __user *optval, int __user *optlen)
 {
 	int err, fput_needed;
 	struct socket *sock;
@@ -1925,6 +1925,12 @@ out_put:
 		fput_light(sock->file, fput_needed);
 	}
 	return err;
+}
+
+SYSCALL_DEFINE5(getsockopt, int, fd, int, level, int, optname,
+		char __user *, optval, int __user *, optlen)
+{
+	return __sys_getsockopt(fd, level, optname, optval, optlen);
 }
 
 /*
@@ -2542,7 +2548,7 @@ SYSCALL_DEFINE2(socketcall, int, call, unsigned long __user *, args)
 		break;
 	case SYS_GETSOCKOPT:
 		err =
-		    sys_getsockopt(a0, a1, a[2], (char __user *)a[3],
+		    __sys_getsockopt(a0, a1, a[2], (char __user *)a[3],
 				   (int __user *)a[4]);
 		break;
 	case SYS_SENDMSG:
