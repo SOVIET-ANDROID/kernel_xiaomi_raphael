@@ -42,6 +42,13 @@ struct itimerval {
 	struct timeval it_value;	/* current value */
 };
 
+#ifndef __kernel_timespec
+struct __kernel_timespec {
+	__kernel_time64_t       tv_sec;                 /* seconds */
+	long long               tv_nsec;                /* nanoseconds */
+};
+#endif
+
 /*
  * The IDs of the various system clocks (for POSIX.1b interval timers):
  */
