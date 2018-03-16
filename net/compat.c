@@ -385,8 +385,8 @@ static int compat_sock_setsockopt(struct socket *sock, int level, int optname,
 	return sock_setsockopt(sock, level, optname, optval, optlen);
 }
 
-COMPAT_SYSCALL_DEFINE5(setsockopt, int, fd, int, level, int, optname,
-		       char __user *, optval, unsigned int, optlen)
+static int __compat_sys_setsockopt(int fd, int level, int optname,
+				   char __user *optval, unsigned int optlen)
 {
 	int err;
 	struct socket *sock = sockfd_lookup(fd, &err);
@@ -410,6 +410,12 @@ COMPAT_SYSCALL_DEFINE5(setsockopt, int, fd, int, level, int, optname,
 		sockfd_put(sock);
 	}
 	return err;
+}
+
+COMPAT_SYSCALL_DEFINE5(setsockopt, int, fd, int, level, int, optname,
+		       char __user *, optval, unsigned int, optlen)
+{
+	return __compat_sys_setsockopt(fd, level, optname, optval, optlen);
 }
 
 static int do_get_sock_timeout(struct socket *sock, int level, int optname,
@@ -863,8 +869,8 @@ COMPAT_SYSCALL_DEFINE2(socketcall, int, call, u32 __user *, args)
 		ret = sys_shutdown(a0, a1);
 		break;
 	case SYS_SETSOCKOPT:
-		ret = compat_sys_setsockopt(a0, a1, a[2],
-				compat_ptr(a[3]), a[4]);
+		ret = __compat_sys_setsockopt(a0, a1, a[2],
+					      compat_ptr(a[3]), a[4]);
 		break;
 	case SYS_GETSOCKOPT:
 		ret = __compat_sys_getsockopt(a0, a1, a[2],
