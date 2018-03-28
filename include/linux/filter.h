@@ -601,6 +601,7 @@ struct sk_msg_buff {
 	__u32 key;
 	__u32 flags;
 	struct bpf_map *map;
+	struct list_head list;
 };
 
 /* compute the linear packet data range [data, data_end) which
