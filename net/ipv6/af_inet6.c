@@ -902,6 +902,10 @@ static const struct ipv6_stub ipv6_stub_impl = {
 	.nd_tbl	= &nd_tbl,
 };
 
+static const struct ipv6_bpf_stub ipv6_bpf_stub_impl = {
+	.inet6_bind = __inet6_bind,
+};
+
 static int __init inet6_init(void)
 {
 	struct list_head *r;
@@ -1058,6 +1062,7 @@ static int __init inet6_init(void)
 	/* ensure that ipv6 stubs are visible only after ipv6 is ready */
 	wmb();
 	ipv6_stub = &ipv6_stub_impl;
+	ipv6_bpf_stub = &ipv6_bpf_stub_impl;
 out:
 	return err;
 
