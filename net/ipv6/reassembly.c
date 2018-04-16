@@ -375,7 +375,7 @@ static int ipv6_frag_rcv(struct sk_buff *skb)
 		spin_unlock(&fq->q.lock);
 		inet_frag_put(&fq->q);
 		if (prob_offset) {
-			__IP6_INC_STATS(net, ip6_dst_idev(skb_dst(skb)),
+			__IP6_INC_STATS(net, __in6_dev_get_safely(skb->dev),
 					IPSTATS_MIB_INHDRERRORS);
 			/* icmpv6_param_prob() calls kfree_skb(skb) */
 			icmpv6_param_prob(skb, ICMPV6_HDR_FIELD, prob_offset);
@@ -388,7 +388,7 @@ static int ipv6_frag_rcv(struct sk_buff *skb)
 	return -1;
 
 fail_hdr:
-	__IP6_INC_STATS(net, ip6_dst_idev(skb_dst(skb)),
+	__IP6_INC_STATS(net, __in6_dev_get_safely(skb->dev),
 			IPSTATS_MIB_INHDRERRORS);
 	icmpv6_param_prob(skb, ICMPV6_HDR_FIELD, skb_network_header_len(skb));
 	return -1;
