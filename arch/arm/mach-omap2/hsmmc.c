@@ -20,7 +20,6 @@
 
 #include "soc.h"
 #include "omap_device.h"
-#include "omap-pm.h"
 
 #include "hsmmc.h"
 #include "control.h"

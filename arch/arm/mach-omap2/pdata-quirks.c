@@ -25,7 +25,6 @@
 #include <linux/platform_data/iommu-omap.h>
 #include <linux/platform_data/wkup_m3.h>
 #include <linux/platform_data/pwm_omap_dmtimer.h>
-#include <linux/platform_data/media/ir-rx51.h>
 #include <linux/platform_data/asoc-ti-mcbsp.h>
 #include <plat/dmtimer.h>
 
@@ -33,7 +32,6 @@
 #include "common-board-devices.h"
 #include "control.h"
 #include "omap_device.h"
-#include "omap-pm.h"
 #include "omap-secure.h"
 #include "soc.h"
 #include "hsmmc.h"
@@ -410,18 +408,6 @@ static struct pwm_omap_dmtimer_pdata pwm_dmtimer_pdata = {
 	.write_status = omap_dm_timer_write_status,
 };
 #endif
-
-static struct ir_rx51_platform_data __maybe_unused rx51_ir_data = {
-	.set_max_mpu_wakeup_lat = omap_pm_set_max_mpu_wakeup_lat,
-};
-
-static struct platform_device __maybe_unused rx51_ir_device = {
-	.name           = "ir_rx51",
-	.id             = -1,
-	.dev            = {
-		.platform_data = &rx51_ir_data,
-	},
-};
 
 #if IS_ENABLED(CONFIG_SND_OMAP_SOC_MCBSP)
 static struct omap_mcbsp_platform_data mcbsp_pdata;
