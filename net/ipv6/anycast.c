@@ -251,6 +251,7 @@ int __ipv6_dev_ac_inc(struct inet6_dev *idev, const struct in6_addr *addr)
 {
 	struct ifacaddr6 *aca;
 	struct rt6_info *rt;
+	struct net *net;
 	int err;
 
 	ASSERT_RTNL();
@@ -269,7 +270,8 @@ int __ipv6_dev_ac_inc(struct inet6_dev *idev, const struct in6_addr *addr)
 		}
 	}
 
-	rt = addrconf_dst_alloc(idev, addr, true);
+	net = dev_net(idev->dev);
+	rt = addrconf_dst_alloc(net, idev, addr, true);
 	if (IS_ERR(rt)) {
 		err = PTR_ERR(rt);
 		goto out;
@@ -290,7 +292,7 @@ int __ipv6_dev_ac_inc(struct inet6_dev *idev, const struct in6_addr *addr)
 	aca_get(aca);
 	write_unlock_bh(&idev->lock);
 
-	ip6_ins_rt(rt);
+	ip6_ins_rt(net, rt);
 
 	addrconf_join_solict(idev->dev, &aca->aca_addr);
 
@@ -333,7 +335,7 @@ int __ipv6_dev_ac_dec(struct inet6_dev *idev, const struct in6_addr *addr)
 	addrconf_leave_solict(idev, &aca->aca_addr);
 
 	dst_hold(&aca->aca_rt->dst);
-	ip6_del_rt(aca->aca_rt);
+	ip6_del_rt(dev_net(idev->dev), aca->aca_rt);
 
 	aca_put(aca);
 	return 0;
@@ -361,7 +363,7 @@ void ipv6_ac_destroy_dev(struct inet6_dev *idev)
 		addrconf_leave_solict(idev, &aca->aca_addr);
 
 		dst_hold(&aca->aca_rt->dst);
-		ip6_del_rt(aca->aca_rt);
+		ip6_del_rt(dev_net(idev->dev), aca->aca_rt);
 
 		aca_put(aca);
 
