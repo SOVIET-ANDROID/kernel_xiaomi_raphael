@@ -757,6 +757,13 @@ union bpf_attr {
  *     @addr_len: length of sockaddr structure
  *     Return: 0 on success or negative error code
  *
+ * int bpf_xdp_adjust_tail(xdp_md, delta)
+ *     Adjust the xdp_md.data_end by delta. Only shrinking of packet's
+ *     size is supported.
+ *     @xdp_md: pointer to xdp_md
+ *     @delta: A negative integer to be added to xdp_md.data_end
+ *     Return: 0 on success or negative on error
+ *
  * int skb_load_bytes_relative(const struct sk_buff *skb, u32 offset, void *to, u32 len, u32 start_header)
  * 	Description
  * 		This helper is similar to **bpf_skb_load_bytes**\ () in that
