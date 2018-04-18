@@ -1167,19 +1167,19 @@ check_cleanup_prefix_route(struct inet6_ifaddr *ifp, unsigned long *expires)
 static void
 cleanup_prefix_route(struct inet6_ifaddr *ifp, unsigned long expires, bool del_rt)
 {
-	struct fib6_info *rt;
+	struct fib6_info *f6i;
 
-	rt = addrconf_get_prefix_route(&ifp->addr,
+	f6i = addrconf_get_prefix_route(&ifp->addr,
 				       ifp->prefix_len,
 				       ifp->idev->dev,
 				       0, RTF_GATEWAY | RTF_DEFAULT);
-	if (rt) {
+	if (f6i) {
 		if (del_rt)
-			ip6_del_rt(dev_net(ifp->idev->dev), rt);
+			ip6_del_rt(dev_net(ifp->idev->dev), f6i);
 		else {
-			if (!(rt->rt6i_flags & RTF_EXPIRES))
-				fib6_set_expires(rt, expires);
-			fib6_info_release(rt);
+			if (!(f6i->fib6_flags & RTF_EXPIRES))
+				fib6_set_expires(f6i, expires);
+			fib6_info_release(f6i);
 		}
 	}
 }
@@ -2375,9 +2375,9 @@ static struct fib6_info *addrconf_get_prefix_route(const struct in6_addr *pfx,
 	for_each_fib6_node_rt_rcu(fn) {
 		if (rt->fib6_nh.nh_dev->ifindex != dev->ifindex)
 			continue;
-		if ((rt->rt6i_flags & flags) != flags)
+		if ((rt->fib6_flags & flags) != flags)
 			continue;
-		if ((rt->rt6i_flags & noflags) != 0)
+		if ((rt->fib6_flags & noflags) != 0)
 			continue;
 		fib6_info_hold(rt);
 		break;
@@ -3363,11 +3363,11 @@ static int fixup_permanent_addr(struct net *net,
 				struct inet6_dev *idev,
 				struct inet6_ifaddr *ifp)
 {
-	/* !rt6i_node means the host route was removed from the
+	/* !fib6_node means the host route was removed from the
 	 * FIB, for example, if 'lo' device is taken down. In that
 	 * case regenerate the host route.
 	 */
-	if (!ifp->rt || !ifp->rt->rt6i_node) {
+	if (!ifp->rt || !ifp->rt->fib6_node) {
 		struct fib6_info *rt, *prev;
 
 		rt = addrconf_dst_alloc(net, idev, &ifp->addr, false,
@@ -5641,7 +5641,7 @@ static void __ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
 		 * host route, so nothing to insert. That will be fixed when
 		 * the device is brought up.
 		 */
-		if (ifp->rt && !rcu_access_pointer(ifp->rt->rt6i_node)) {
+		if (ifp->rt && !rcu_access_pointer(ifp->rt->fib6_node)) {
 			ip6_ins_rt(net, ifp->rt);
 		} else if (!ifp->rt && (ifp->idev->dev->flags & IFF_UP)) {
 			pr_warn("BUG: Address %pI6c on device %s is missing its host route.\n",
