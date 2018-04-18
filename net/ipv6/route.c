@@ -305,10 +305,6 @@ static const struct rt6_info ip6_null_entry_template = {
 		.output		= ip6_pkt_discard_out,
 	},
 	.rt6i_flags	= (RTF_REJECT | RTF_NONEXTHOP),
-	.rt6i_protocol  = RTPROT_KERNEL,
-	.rt6i_metric	= ~(u32) 0,
-	.rt6i_ref	= ATOMIC_INIT(1),
-	.fib6_type	= RTN_UNREACHABLE,
 };
 
 #ifdef CONFIG_IPV6_MULTIPLE_TABLES
@@ -323,10 +319,6 @@ static const struct rt6_info ip6_prohibit_entry_template = {
 		.output		= ip6_pkt_prohibit_out,
 	},
 	.rt6i_flags	= (RTF_REJECT | RTF_NONEXTHOP),
-	.rt6i_protocol  = RTPROT_KERNEL,
-	.rt6i_metric	= ~(u32) 0,
-	.rt6i_ref	= ATOMIC_INIT(1),
-	.fib6_type	= RTN_PROHIBIT,
 };
 
 static const struct rt6_info ip6_blk_hole_entry_template = {
@@ -339,10 +331,6 @@ static const struct rt6_info ip6_blk_hole_entry_template = {
 		.output		= dst_discard_out,
 	},
 	.rt6i_flags	= (RTF_REJECT | RTF_NONEXTHOP),
-	.rt6i_protocol  = RTPROT_KERNEL,
-	.rt6i_metric	= ~(u32) 0,
-	.rt6i_ref	= ATOMIC_INIT(1),
-	.fib6_type	= RTN_BLACKHOLE,
 };
 
 #endif
@@ -352,7 +340,6 @@ static void rt6_info_init(struct rt6_info *rt)
 	struct dst_entry *dst = &rt->dst;
 
 	memset(dst + 1, 0, sizeof(*rt) - sizeof(*dst));
-	INIT_LIST_HEAD(&rt->rt6i_siblings);
 	INIT_LIST_HEAD(&rt->rt6i_uncached);
 }
 
@@ -1002,12 +989,10 @@ static void ip6_rt_copy_init(struct rt6_info *rt, struct fib6_info *ort)
 	rt->rt6i_gateway = ort->fib6_nh.nh_gw;
 	rt->rt6i_flags = ort->rt6i_flags;
 	rt6_set_from(rt, ort);
-	rt->rt6i_metric = ort->rt6i_metric;
 #ifdef CONFIG_IPV6_SUBTREES
 	rt->rt6i_src = ort->rt6i_src;
 #endif
 	rt->rt6i_prefsrc = ort->rt6i_prefsrc;
-	rt->rt6i_table = ort->rt6i_table;
 	rt->dst.lwtstate = lwtstate_get(ort->fib6_nh.nh_lwtstate);
 }
 
@@ -1195,7 +1180,6 @@ static struct rt6_info *ip6_rt_cache_alloc(struct fib6_info *ort,
 
 	ip6_rt_copy_init(rt, ort);
 	rt->rt6i_flags |= RTF_CACHE;
-	rt->rt6i_metric = 0;
 	rt->dst.flags |= DST_HOST;
 	rt->rt6i_dst.addr = *daddr;
 	rt->rt6i_dst.plen = 128;
@@ -1228,7 +1212,6 @@ static struct rt6_info *ip6_rt_pcpu_alloc(struct fib6_info *rt)
 	if (!pcpu_rt)
 		return NULL;
 	ip6_rt_copy_init(pcpu_rt, rt);
-	pcpu_rt->rt6i_protocol = rt->rt6i_protocol;
 	pcpu_rt->rt6i_flags |= RTF_PCPU;
 	return pcpu_rt;
 }
@@ -1282,9 +1265,8 @@ static void rt6_remove_exception(struct rt6_exception_bucket *bucket,
 		return;
 
 	net = dev_net(rt6_ex->rt6i->dst.dev);
-	rt6_ex->rt6i->rt6i_node = NULL;
 	hlist_del_rcu(&rt6_ex->hlist);
-	ip6_rt_put(rt6_ex->rt6i);
+	dst_release(&rt6_ex->rt6i->dst);
 	kfree_rcu(rt6_ex, rcu);
 	WARN_ON_ONCE(!bucket->depth);
 	bucket->depth--;
@@ -1466,8 +1448,6 @@ static int rt6_insert_exception(struct rt6_info *nrt,
 	}
 	rt6_ex->rt6i = nrt;
 	rt6_ex->stamp = jiffies;
-	atomic_inc(&nrt->rt6i_ref);
-	nrt->rt6i_node = ort->rt6i_node;
 	hlist_add_head_rcu(&rt6_ex->hlist, &bucket->chain);
 	bucket->depth++;
 	net->ipv6.rt6_stats->fib_rt_cache++;
@@ -2117,7 +2097,6 @@ struct dst_entry *ip6_blackhole_route(struct net *net, struct dst_entry *dst_ori
 		rt->rt6i_idev = in6_dev_get(loopback_dev);
 		rt->rt6i_gateway = ort->rt6i_gateway;
 		rt->rt6i_flags = ort->rt6i_flags & ~RTF_PCPU;
-		rt->rt6i_metric = 0;
 
 		memcpy(&rt->rt6i_dst, &ort->rt6i_dst, sizeof(struct rt6key));
 #ifdef CONFIG_IPV6_SUBTREES
@@ -2242,8 +2221,7 @@ static void rt6_do_update_pmtu(struct rt6_info *rt, u32 mtu)
 static bool rt6_cache_allowed_for_pmtu(const struct rt6_info *rt)
 {
 	return !(rt->rt6i_flags & RTF_CACHE) &&
-		(rt->rt6i_flags & RTF_PCPU ||
-		 rcu_access_pointer(rt->rt6i_node));
+		(rt->rt6i_flags & RTF_PCPU || rt->from);
 }
 
 static void __ip6_rt_update_pmtu(struct dst_entry *dst, const struct sock *sk,
@@ -3278,7 +3256,6 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
 	if (on_link)
 		nrt->rt6i_flags &= ~RTF_GATEWAY;
 
-	nrt->rt6i_protocol = RTPROT_REDIRECT;
 	nrt->rt6i_gateway = *(struct in6_addr *)neigh->primary_key;
 
 	/* No need to remove rt from the exception table if rt is
