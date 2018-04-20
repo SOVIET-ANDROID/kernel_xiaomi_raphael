@@ -362,7 +362,7 @@ EXPORT_SYMBOL(ip6_dst_alloc);
 static void ip6_dst_destroy(struct dst_entry *dst)
 {
 	struct rt6_info *rt = (struct rt6_info *)dst;
-	struct fib6_info *from = rt->from;
+	struct fib6_info *from;
 	struct inet6_dev *idev;
 
 	dst_destroy_metrics_generic(dst);
@@ -374,8 +374,11 @@ static void ip6_dst_destroy(struct dst_entry *dst)
 		in6_dev_put(idev);
 	}
 
-	rt->from = NULL;
+	rcu_read_lock();
+	from = rcu_dereference(rt->from);
+	rcu_assign_pointer(rt->from, NULL);
 	fib6_info_release(from);
+	rcu_read_unlock();
 }
 
 static void ip6_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
@@ -405,12 +408,16 @@ static bool __rt6_check_expired(const struct rt6_info *rt)
 
 static bool rt6_check_expired(const struct rt6_info *rt)
 {
+	struct fib6_info *from;
+
+	from = rcu_dereference(rt->from);
+
 	if (rt->rt6i_flags & RTF_EXPIRES) {
 		if (time_after(jiffies, rt->dst.expires))
 			return true;
-	} else if (rt->from) {
+	} else if (from) {
 		return rt->dst.obsolete != DST_OBSOLETE_FORCE_CHK ||
-			fib6_check_expired(rt->from);
+			fib6_check_expired(from);
 	}
 	return false;
 }
@@ -966,7 +973,7 @@ static void rt6_set_from(struct rt6_info *rt, struct fib6_info *from)
 {
 	rt->rt6i_flags &= ~RTF_EXPIRES;
 	fib6_info_hold(from);
-	rt->from = from;
+	rcu_assign_pointer(rt->from, from);
 	dst_init_metrics(&rt->dst, from->fib6_metrics->metrics, true);
 	if (from->fib6_metrics != &dst_default_metrics) {
 		rt->dst._metrics |= DST_METRICS_REFCOUNTED;
@@ -2128,11 +2135,13 @@ static bool fib6_check(struct fib6_info *f6i, u32 cookie)
 	return true;
 }
 
-static struct dst_entry *rt6_check(struct rt6_info *rt, u32 cookie)
+static struct dst_entry *rt6_check(struct rt6_info *rt,
+				   struct fib6_info *from,
+				   u32 cookie)
 {
 	u32 rt_cookie = 0;
 
-	if ((rt->from && !fib6_get_cookie_safe(rt->from, &rt_cookie)) ||
+	if ((from && !fib6_get_cookie_safe(from, &rt_cookie)) ||
 	    rt_cookie != cookie)
 		return NULL;
 
@@ -2142,11 +2151,13 @@ static struct dst_entry *rt6_check(struct rt6_info *rt, u32 cookie)
 	return &rt->dst;
 }
 
-static struct dst_entry *rt6_dst_from_check(struct rt6_info *rt, u32 cookie)
+static struct dst_entry *rt6_dst_from_check(struct rt6_info *rt,
+					    struct fib6_info *from,
+					    u32 cookie)
 {
 	if (!__rt6_check_expired(rt) &&
 	    rt->dst.obsolete == DST_OBSOLETE_FORCE_CHK &&
-	    fib6_check(rt->from, cookie))
+	    fib6_check(from, cookie))
 		return &rt->dst;
 	else
 		return NULL;
@@ -2155,6 +2166,7 @@ static struct dst_entry *rt6_dst_from_check(struct rt6_info *rt, u32 cookie)
 static struct dst_entry *ip6_dst_check(struct dst_entry *dst, u32 cookie)
 {
 	struct dst_entry *dst_ret;
+	struct fib6_info *from;
 	struct rt6_info *rt;
 
 	rt = container_of(dst, struct rt6_info, dst);
@@ -2166,11 +2178,13 @@ static struct dst_entry *ip6_dst_check(struct dst_entry *dst, u32 cookie)
 	 * into this function always.
 	 */
 
-	if (rt->rt6i_flags & RTF_PCPU ||
-	    (unlikely(!list_empty(&rt->rt6i_uncached)) && rt->from))
-		dst_ret = rt6_dst_from_check(rt, cookie);
+	from = rcu_dereference(rt->from);
+
+	if (from && (rt->rt6i_flags & RTF_PCPU ||
+	    unlikely(!list_empty(&rt->rt6i_uncached))))
+		dst_ret = rt6_dst_from_check(rt, from, cookie);
 	else
-		dst_ret = rt6_check(rt, cookie);
+		dst_ret = rt6_check(rt, from, cookie);
 
 	rcu_read_unlock();
 
@@ -2206,13 +2220,17 @@ static void ip6_link_failure(struct sk_buff *skb)
 		if (rt->rt6i_flags & RTF_CACHE) {
 			if (dst_hold_safe(&rt->dst))
 				rt6_remove_exception_rt(rt);
-		} else if (rt->from) {
+		} else {
+			struct fib6_info *from;
 			struct fib6_node *fn;
 
 			rcu_read_lock();
-			fn = rcu_dereference(rt->from->fib6_node);
-			if (fn && (rt->rt6i_flags & RTF_DEFAULT))
-				fn->fn_sernum = -1;
+			from = rcu_dereference(rt->from);
+			if (from) {
+				fn = rcu_dereference(from->fib6_node);
+				if (fn && (rt->rt6i_flags & RTF_DEFAULT))
+					fn->fn_sernum = -1;
+			}
 			rcu_read_unlock();
 		}
 	}
@@ -2220,8 +2238,15 @@ static void ip6_link_failure(struct sk_buff *skb)
 
 static void rt6_update_expires(struct rt6_info *rt0, int timeout)
 {
-	if (!(rt0->rt6i_flags & RTF_EXPIRES) && rt0->from)
-		rt0->dst.expires = rt0->from->expires;
+	if (!(rt0->rt6i_flags & RTF_EXPIRES)) {
+		struct fib6_info *from;
+
+		rcu_read_lock();
+		from = rcu_dereference(rt0->from);
+		if (from)
+			rt0->dst.expires = from->expires;
+		rcu_read_unlock();
+	}
 
 	dst_set_expires(&rt0->dst, timeout);
 	rt0->rt6i_flags |= RTF_EXPIRES;
@@ -2238,8 +2263,14 @@ static void rt6_do_update_pmtu(struct rt6_info *rt, u32 mtu)
 
 static bool rt6_cache_allowed_for_pmtu(const struct rt6_info *rt)
 {
+	bool from_set;
+
+	rcu_read_lock();
+	from_set = !!rcu_dereference(rt->from);
+	rcu_read_unlock();
+
 	return !(rt->rt6i_flags & RTF_CACHE) &&
-		(rt->rt6i_flags & RTF_PCPU || rt->from);
+		(rt->rt6i_flags & RTF_PCPU || from_set);
 }
 
 static void __ip6_rt_update_pmtu(struct dst_entry *dst, const struct sock *sk,
@@ -2278,16 +2309,18 @@ static void __ip6_rt_update_pmtu(struct dst_entry *dst, const struct sock *sk,
 		if (rt6->rt6i_flags & RTF_CACHE)
 			rt6_update_exception_stamp_rt(rt6);
 	} else if (daddr) {
+		struct fib6_info *from;
 		struct rt6_info *nrt6;
 
 		rcu_read_lock();
-		nrt6 = ip6_rt_cache_alloc(rt6->from, daddr, saddr);
-		rcu_read_unlock();
+		from = rcu_dereference(rt6->from);
+		nrt6 = ip6_rt_cache_alloc(from, daddr, saddr);
 		if (nrt6) {
 			rt6_do_update_pmtu(nrt6, mtu);
-			if (rt6_insert_exception(nrt6, rt6->from))
+			if (rt6_insert_exception(nrt6, from))
 				dst_release_immediate(&nrt6->dst);
 		}
+		rcu_read_unlock();
 	}
 }
 
@@ -3189,6 +3222,7 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
 	struct ndisc_options ndopts;
 	struct inet6_dev *in6_dev;
 	struct neighbour *neigh;
+	struct fib6_info *from;
 	struct rd_msg *msg;
 	int optlen, on_link;
 	u8 *lladdr;
@@ -3271,7 +3305,8 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
 		     NDISC_REDIRECT, &ndopts);
 
 	rcu_read_lock();
-	nrt = ip6_rt_cache_alloc(rt->from, &msg->dest, NULL);
+	from = rcu_dereference(rt->from);
+	nrt = ip6_rt_cache_alloc(from, &msg->dest, NULL);
 	rcu_read_unlock();
 	if (!nrt)
 		goto out;
@@ -4660,6 +4695,7 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
 	struct net *net = sock_net(in_skb->sk);
 	struct nlattr *tb[RTA_MAX+1];
 	int err, iif = 0, oif = 0;
+	struct fib6_info *from;
 	struct dst_entry *dst;
 	struct rt6_info *rt;
 	struct sk_buff *skb;
@@ -4756,15 +4792,21 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
 	}
 
 	skb_dst_set(skb, &rt->dst);
+
+	rcu_read_lock();
+	from = rcu_dereference(rt->from);
+
 	if (fibmatch)
-		err = rt6_fill_node(net, skb, rt->from, NULL, NULL, NULL, iif,
+		err = rt6_fill_node(net, skb, from, NULL, NULL, NULL, iif,
 				    RTM_NEWROUTE, NETLINK_CB(in_skb).portid,
 				    nlh->nlmsg_seq, 0);
 	else
-		err = rt6_fill_node(net, skb, rt->from, dst,
-				    &fl6.daddr, &fl6.saddr, iif, RTM_NEWROUTE,
+		err = rt6_fill_node(net, skb, from, dst, &fl6.daddr,
+				    &fl6.saddr, iif, RTM_NEWROUTE,
 				    NETLINK_CB(in_skb).portid, nlh->nlmsg_seq,
 				    0);
+	rcu_read_unlock();
+
 	if (err < 0) {
 		kfree_skb(skb);
 		goto errout;
