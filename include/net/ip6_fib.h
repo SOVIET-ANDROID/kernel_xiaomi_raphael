@@ -228,8 +228,8 @@ static inline bool fib6_check_expired(const struct fib6_info *f6i)
  * Return true if we can get cookie safely
  * Return false if not
  */
-static inline bool rt6_get_cookie_safe(const struct fib6_info *f6i,
-				       u32 *cookie)
+static inline bool fib6_get_cookie_safe(const struct fib6_info *f6i,
+					u32 *cookie)
 {
 	struct fib6_node *fn;
 	bool status = false;
@@ -253,7 +253,7 @@ static inline u32 rt6_get_cookie(const struct rt6_info *rt)
 	u32 cookie = 0;
 
 	if (rt->from)
-		rt6_get_cookie_safe(rt->from, &cookie);
+		fib6_get_cookie_safe(rt->from, &cookie);
 
 	return cookie;
 }
