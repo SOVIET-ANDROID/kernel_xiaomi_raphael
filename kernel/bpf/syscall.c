@@ -504,7 +504,6 @@ static int map_create(union bpf_attr *attr)
 		return err;
 	}
 
-	trace_bpf_map_create(map, err);
 	return err;
 
 free_map:
@@ -681,7 +680,6 @@ static int map_lookup_elem(union bpf_attr *attr)
 	if (copy_to_user(uvalue, value, value_size) != 0)
 		goto free_value;
 
-	trace_bpf_map_lookup_elem(map, ufd, key, value);
 	err = 0;
 
 free_value:
@@ -806,8 +804,6 @@ static int map_update_elem(union bpf_attr *attr)
 	preempt_enable();
 	maybe_wait_bpf_programs(map);
 out:
-	if (!err)
-		trace_bpf_map_update_elem(map, ufd, key, value);
 free_value:
 	if (value != value_onstack)
 		kfree(value);
@@ -872,8 +868,6 @@ static int map_delete_elem(union bpf_attr *attr)
 	preempt_enable();
 	maybe_wait_bpf_programs(map);
 out:
-	if (!err)
-		trace_bpf_map_delete_elem(map, ufd, key);
 	if (key != key_onstack)
 		kfree(key);
 err_put:
@@ -952,7 +946,6 @@ out:
 	if (copy_to_user(unext_key, next_key, map->key_size) != 0)
 		goto free_next_key;
 
-	trace_bpf_map_next_key(map, ufd, key, next_key);
 	err = 0;
 
 free_next_key:
@@ -1102,7 +1095,6 @@ static void __bpf_prog_put(struct bpf_prog *prog, bool do_idr_lock)
 	if (atomic_dec_and_test(&prog->aux->refcnt)) {
 		int i;
 
-		trace_bpf_prog_put_rcu(prog);
 		/* bpf_prog_free_id() must be called first */
 		bpf_prog_free_id(prog, do_idr_lock);
 
@@ -1269,11 +1261,7 @@ struct bpf_prog *bpf_prog_get(u32 ufd)
 struct bpf_prog *bpf_prog_get_type_dev(u32 ufd, enum bpf_prog_type type,
 				       bool attach_drv)
 {
-	struct bpf_prog *prog = __bpf_prog_get(ufd, &type, attach_drv);
-
-	if (!IS_ERR(prog))
-		trace_bpf_prog_get_type(prog);
-	return prog;
+	return __bpf_prog_get(ufd, &type, attach_drv);
 }
 EXPORT_SYMBOL_GPL(bpf_prog_get_type_dev);
 
@@ -1450,7 +1438,6 @@ static int bpf_prog_load(union bpf_attr *attr)
 	 * be using bpf_prog_put() given the program is exposed.
 	 */
 	bpf_prog_kallsyms_add(prog);
-	trace_bpf_prog_load(prog, err);
 
 	err = bpf_prog_new_fd(prog);
 	if (err < 0)
