@@ -2851,7 +2851,8 @@ static int __bpf_tx_xdp_map(struct net_device *dev_rx, void *fwd,
 {
 	int err;
 
-	if (map->map_type == BPF_MAP_TYPE_DEVMAP) {
+	switch (map->map_type) {
+	case BPF_MAP_TYPE_DEVMAP: {
 		struct net_device *dev = fwd;
 		struct xdp_frame *xdpf;
 
@@ -2869,14 +2870,25 @@ static int __bpf_tx_xdp_map(struct net_device *dev_rx, void *fwd,
 		if (err)
 			return err;
 		__dev_map_insert_ctx(map, index);
-
-	} else if (map->map_type == BPF_MAP_TYPE_CPUMAP) {
+		break;
+	}
+	case BPF_MAP_TYPE_CPUMAP: {
 		struct bpf_cpu_map_entry *rcpu = fwd;
 
 		err = cpu_map_enqueue(rcpu, xdp, dev_rx);
 		if (err)
 			return err;
 		__cpu_map_insert_ctx(map, index);
+		break;
+	}
+	case BPF_MAP_TYPE_XSKMAP: {
+		struct xdp_sock *xs = fwd;
+
+		err = __xsk_map_redirect(map, xdp, xs);
+		return err;
+	}
+	default:
+		break;
 	}
 	return 0;
 }
@@ -2895,6 +2907,9 @@ void xdp_do_flush_map(void)
 		case BPF_MAP_TYPE_CPUMAP:
 			__cpu_map_flush(map);
 			break;
+		case BPF_MAP_TYPE_XSKMAP:
+			__xsk_map_flush(map);
+			break;
 		default:
 			break;
 		}
@@ -2909,6 +2924,8 @@ static void *__xdp_map_lookup_elem(struct bpf_map *map, u32 index)
 		return __dev_map_lookup_elem(map, index);
 	case BPF_MAP_TYPE_CPUMAP:
 		return __cpu_map_lookup_elem(map, index);
+	case BPF_MAP_TYPE_XSKMAP:
+		return __xsk_map_lookup_elem(map, index);
 	default:
 		return NULL;
 	}
