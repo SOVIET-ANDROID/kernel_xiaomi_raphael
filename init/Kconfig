@@ -1619,6 +1619,7 @@ config EVENTFD
 config BPF_SYSCALL
 	bool "Enable bpf() system call"
 	select BPF
+	select IRQ_WORK
 	default n
 	help
 	  Enable the bpf() system call that allows to manipulate eBPF
