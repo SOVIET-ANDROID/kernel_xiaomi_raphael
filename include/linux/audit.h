@@ -252,9 +252,14 @@ extern void __audit_inode_child(struct inode *parent,
 extern void __audit_seccomp(unsigned long syscall, long signr, int code);
 extern void __audit_ptrace(struct task_struct *t);
 
+static inline struct audit_context *audit_context(void)
+{
+	return current->audit_context;
+}
+
 static inline bool audit_dummy_context(void)
 {
-	void *p = current->audit_context;
+	void *p = audit_context();
 	return !p || *(int *)p;
 }
 static inline void audit_free(struct task_struct *task)
@@ -266,12 +271,12 @@ static inline void audit_syscall_entry(int major, unsigned long a0,
 				       unsigned long a1, unsigned long a2,
 				       unsigned long a3)
 {
-	if (unlikely(current->audit_context))
+	if (unlikely(audit_context()))
 		__audit_syscall_entry(major, a0, a1, a2, a3);
 }
 static inline void audit_syscall_exit(void *pt_regs)
 {
-	if (unlikely(current->audit_context)) {
+	if (unlikely(audit_context())) {
 		int success = is_syscall_success(pt_regs);
 		long return_code = regs_return_value(pt_regs);
 
@@ -484,6 +489,10 @@ static inline void audit_syscall_exit(void *pt_regs)
 static inline bool audit_dummy_context(void)
 {
 	return true;
+}
+static inline struct audit_context *audit_context(void)
+{
+	return NULL;
 }
 static inline struct filename *audit_reusename(const __user char *name)
 {

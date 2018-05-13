@@ -2313,8 +2313,7 @@ void audit_log_link_denied(const char *operation, const struct path *link)
 		return;
 
 	/* Generate AUDIT_ANOM_LINK with subject, operation, outcome. */
-	ab = audit_log_start(current->audit_context, GFP_KERNEL,
-			     AUDIT_ANOM_LINK);
+	ab = audit_log_start(audit_context(), GFP_KERNEL, AUDIT_ANOM_LINK);
 	if (!ab)
 		goto out;
 	audit_log_format(ab, "op=%s", operation);
