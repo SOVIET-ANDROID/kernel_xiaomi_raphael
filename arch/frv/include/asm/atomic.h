@@ -146,7 +146,7 @@ static inline void atomic64_dec(atomic64_t *v)
 #define atomic64_cmpxchg(v, old, new)	(__cmpxchg_64(old, new, &(v)->counter))
 #define atomic64_xchg(v, new)		(__xchg_64(new, &(v)->counter))
 
-static __inline__ int __atomic_add_unless(atomic_t *v, int a, int u)
+static __inline__ int atomic_fetch_add_unless(atomic_t *v, int a, int u)
 {
 	int c, old;
 	c = atomic_read(v);

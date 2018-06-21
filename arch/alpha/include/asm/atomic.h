@@ -193,7 +193,7 @@ ATOMIC_OPS(xor, xor)
 #define atomic_xchg(v, new) (xchg(&((v)->counter), new))
 
 /**
- * __atomic_add_unless - add unless the number is a given value
+ * atomic_fetch_add_unless - add unless the number is a given value
  * @v: pointer of type atomic_t
  * @a: the amount to add to v...
  * @u: ...unless v is equal to u.
@@ -201,7 +201,7 @@ ATOMIC_OPS(xor, xor)
  * Atomically adds @a to @v, so long as it was not @u.
  * Returns the old value of @v.
  */
-static __inline__ int __atomic_add_unless(atomic_t *v, int a, int u)
+static __inline__ int atomic_fetch_add_unless(atomic_t *v, int a, int u)
 {
 	int c, new, old;
 	smp_mb();

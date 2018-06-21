@@ -122,7 +122,7 @@ static inline int atomic_cmpxchg(atomic_t *v, int old, int new)
 
 #define atomic_xchg(v, new) (xchg(&((v)->counter), new))
 
-static inline int __atomic_add_unless(atomic_t *v, int a, int u)
+static inline int atomic_fetch_add_unless(atomic_t *v, int a, int u)
 {
 	int ret;
 	unsigned long flags;

@@ -97,7 +97,7 @@ static inline void atomic_xor(int i, atomic_t *v)
 	} while (guess != oldval);
 }
 
-static inline int __atomic_add_unless(atomic_t *v, int a, int u)
+static inline int atomic_fetch_add_unless(atomic_t *v, int a, int u)
 {
 	int guess, oldval = v->counter;
 	do {
