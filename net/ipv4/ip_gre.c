@@ -577,6 +577,8 @@ static void erspan_fb_xmit(struct sk_buff *skb, struct net_device *dev,
 		goto err_free_skb;
 
 	key = &tun_info->key;
+	if (!(tun_info->key.tun_flags & TUNNEL_ERSPAN_OPT))
+		goto err_free_rt;
 
 	/* ERSPAN has fixed 8 byte GRE header */
 	tunnel_hlen = 8 + sizeof(struct erspanhdr);

@@ -2181,7 +2181,8 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
 		vni = tunnel_id_to_key32(info->key.tun_id);
 		ifindex = 0;
 		dst_cache = &info->dst_cache;
-		if (info->options_len) {
+		if (info->options_len &&
+		    info->key.tun_flags & TUNNEL_VXLAN_OPT) {
 			if (info->options_len < sizeof(*md))
 				goto drop;
 			md = ip_tunnel_info_opts(info);
