@@ -112,6 +112,9 @@
 
 #define SO_ZEROCOPY		60
 
+#define SO_TXTIME		61
+#define SCM_TXTIME		SO_TXTIME
+
 #define SO_DETACH_REUSEPORT_BPF 68
 
 #endif /* _UAPI_ASM_SOCKET_H */
