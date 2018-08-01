@@ -185,6 +185,9 @@ struct tcp_sock {
 				 * were acked.
 				 */
 	u8	fast_ack_mode:2; /* which fast ack mode ? */
+	u32	dsack_dups;	/* RFC4898 tcpEStatsStackDSACKDups
+				 * total number of DSACK blocks received
+				 */
  	u32	snd_una;	/* First byte we want an ack for	*/
  	u32	snd_sml;	/* Last byte of the most recently transmitted small packet */
 	u32	rcv_tstamp;	/* timestamp of last received ACK (for keepalives) */
