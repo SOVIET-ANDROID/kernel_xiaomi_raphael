@@ -111,10 +111,6 @@ struct tls_sw_context_tx {
 	struct scatterlist sg_aead_in[2];
 	/* AAD | sg_encrypted_data (data contain overhead for hdr&iv&tag) */
 	struct scatterlist sg_aead_out[2];
-
-	char rx_aad_ciphertext[TLS_AAD_SPACE_SIZE];
-	char rx_aad_plaintext[TLS_AAD_SPACE_SIZE];
-
 };
 
 struct tls_sw_context_rx {
