@@ -977,6 +977,32 @@ static void smap_gather_stats(struct vm_area_struct *vma,
 
 #define SEQ_PUT_DEC(str, val) \
 		seq_put_decimal_ull_width(m, str, (val) >> 10, 8)
+
+/* Show the contents common for smaps and smaps_rollup */
+static void __show_smap(struct seq_file *m, const struct mem_size_stats *mss)
+{
+	SEQ_PUT_DEC("Rss:            ", mss->resident);
+	SEQ_PUT_DEC(" kB\nPss:            ", mss->pss >> PSS_SHIFT);
+	SEQ_PUT_DEC(" kB\nShared_Clean:   ", mss->shared_clean);
+	SEQ_PUT_DEC(" kB\nShared_Dirty:   ", mss->shared_dirty);
+	SEQ_PUT_DEC(" kB\nPrivate_Clean:  ", mss->private_clean);
+	SEQ_PUT_DEC(" kB\nPrivate_Dirty:  ", mss->private_dirty);
+	SEQ_PUT_DEC(" kB\nReferenced:     ", mss->referenced);
+	SEQ_PUT_DEC(" kB\nAnonymous:      ", mss->anonymous);
+	SEQ_PUT_DEC(" kB\nLazyFree:       ", mss->lazyfree);
+	SEQ_PUT_DEC(" kB\nAnonHugePages:  ", mss->anonymous_thp);
+	SEQ_PUT_DEC(" kB\nShmemPmdMapped: ", mss->shmem_thp);
+	SEQ_PUT_DEC(" kB\nShared_Hugetlb: ", mss->shared_hugetlb);
+	seq_put_decimal_ull_width(m, " kB\nPrivate_Hugetlb: ",
+				  mss->private_hugetlb >> 10, 7);
+	SEQ_PUT_DEC(" kB\nSwap:           ", mss->swap);
+	SEQ_PUT_DEC(" kB\nSwapPss:        ",
+					mss->swap_pss >> PSS_SHIFT);
+	SEQ_PUT_DEC(" kB\nLocked:         ",
+					mss->pss_locked >> PSS_SHIFT);
+	seq_puts(m, " kB\n");
+}
+
 static int show_smap(struct seq_file *m, void *v)
 {
 	struct proc_maps_private *priv = m->private;
@@ -1018,12 +1044,8 @@ static int show_smap(struct seq_file *m, void *v)
 		seq_print_vma_name(m, vma);
 	}
 
-	if (!rollup_mode) {
-		SEQ_PUT_DEC("Size:           ", vma->vm_end - vma->vm_start);
-		SEQ_PUT_DEC(" kB\nKernelPageSize: ", vma_kernel_pagesize(vma));
-		SEQ_PUT_DEC(" kB\nMMUPageSize:    ", vma_mmu_pagesize(vma));
-		seq_puts(m, " kB\n");
-	}
+	if (!rollup_mode || last_vma)
+		__show_smap(m, mss);
 
 	if (!rollup_mode || last_vma) {
 		SEQ_PUT_DEC("Rss:            ", mss->resident);
