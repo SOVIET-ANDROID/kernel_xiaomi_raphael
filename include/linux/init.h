@@ -118,8 +118,24 @@
 typedef int (*initcall_t)(void);
 typedef void (*exitcall_t)(void);
 
-extern initcall_t __con_initcall_start[], __con_initcall_end[];
-extern initcall_t __security_initcall_start[], __security_initcall_end[];
+#ifdef CONFIG_HAVE_ARCH_PREL32_RELOCATIONS
+typedef int initcall_entry_t;
+
+static inline initcall_t initcall_from_entry(initcall_entry_t *entry)
+{
+	return offset_to_ptr(entry);
+}
+#else
+typedef initcall_t initcall_entry_t;
+
+static inline initcall_t initcall_from_entry(initcall_entry_t *entry)
+{
+	return *entry;
+}
+#endif
+
+extern initcall_entry_t __con_initcall_start[], __con_initcall_end[];
+extern initcall_entry_t __security_initcall_start[], __security_initcall_end[];
 
 /* Used for contructor calls. */
 typedef void (*ctor_fn_t)(void);
@@ -172,6 +188,14 @@ extern bool initcall_debug;
  * and remove that completely, so the initcall sections have to be marked
  * as KEEP() in the linker script.
  */
+#ifdef CONFIG_HAVE_ARCH_PREL32_RELOCATIONS
+#define ___define_initcall(fn, id, __sec)			\
+	__ADDRESSABLE(fn)					\
+	asm(".section	\"" #__sec ".init\", \"a\"	\n"	\
+	"__initcall_" #fn #id ":			\n"	\
+	    ".long	" #fn " - .			\n"	\
+	    ".previous					\n");
+#else
 #ifdef CONFIG_LTO_CLANG
   /*
    * With LTO, the compiler doesn't necessarily obey link order for
@@ -196,6 +220,7 @@ extern bool initcall_debug;
   #define ___define_initcall(fn, id, __sec) \
 	static initcall_t __initcall_##fn##id __used \
 		__attribute__((__section__(#__sec ".init"))) = fn;
+#endif
 #endif
 
 #define __define_initcall(fn, id) ___define_initcall(fn, id, .initcall##id)
