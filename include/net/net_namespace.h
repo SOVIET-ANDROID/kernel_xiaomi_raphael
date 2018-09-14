@@ -42,6 +42,7 @@ struct ctl_table_header;
 struct net_generic;
 struct sock;
 struct netns_ipvs;
+struct bpf_prog;
 
 
 #define NETDEV_HASHBITS    8
@@ -136,6 +137,8 @@ struct net {
 	struct sk_buff_head	wext_nlevents;
 #endif
 	struct net_generic __rcu	*gen;
+
+	struct bpf_prog __rcu	*flow_dissector_prog;
 
 	/* Note : following structs are cache line aligned */
 #ifdef CONFIG_XFRM
