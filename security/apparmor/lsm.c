@@ -1124,12 +1124,6 @@ static int __init apparmor_init(void)
 {
 	int error;
 
-	if (!apparmor_enabled || !security_module_enable("apparmor")) {
-		aa_info_message("AppArmor disabled by boot time parameter");
-		apparmor_enabled = 0;
-		return 0;
-	}
-
 	error = aa_setup_dfa_engine();
 	if (error) {
 		AA_ERROR("Unable to setup dfa engine\n");
