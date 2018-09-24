@@ -573,7 +573,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
 	struct flow_dissector_key_vlan *key_vlan;
 	enum flow_dissect_ret fdret;
 	bool skip_vlan = false;
-	struct bpf_prog *attached;
+	struct bpf_prog *attached = NULL;
 	int num_hdrs = 0;
 	u8 ip_proto = 0;
 	bool ret;
@@ -615,8 +615,14 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
 					      target_container);
 
 	rcu_read_lock();
-	attached = skb ? rcu_dereference(dev_net(skb->dev)->flow_dissector_prog)
-		       : NULL;
+	if (skb) {
+		if (skb->dev)
+			attached = rcu_dereference(dev_net(skb->dev)->flow_dissector_prog);
+		else if (skb->sk)
+			attached = rcu_dereference(sock_net(skb->sk)->flow_dissector_prog);
+		else
+			WARN_ON_ONCE(1);
+	}
 	if (attached) {
 		/* Note that even though the const qualifier is discarded
 		 * throughout the execution of the BPF program, all changes(the
