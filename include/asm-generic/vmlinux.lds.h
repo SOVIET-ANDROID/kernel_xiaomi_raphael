@@ -482,13 +482,6 @@
 #define RODATA          RO_DATA_SECTION(4096)
 #define RO_DATA(align)  RO_DATA_SECTION(align)
 
-#define SECURITY_INIT							\
-	.security_initcall.init : AT(ADDR(.security_initcall.init) - LOAD_OFFSET) { \
-		VMLINUX_SYMBOL(__security_initcall_start) = .;		\
-		KEEP(*(.security_initcall.init))			\
-		VMLINUX_SYMBOL(__security_initcall_end) = .;		\
-	}
-
 /*
  * .text section. Map to function alignment to avoid address changes
  * during second ld run in second ld pass when generating System.map
@@ -835,6 +828,12 @@
 		VMLINUX_SYMBOL(__security_initcall_start) = .;		\
 		KEEP(*(.security_initcall.init))			\
 		VMLINUX_SYMBOL(__security_initcall_end) = .;
+
+/* Older linker script style for security init. */
+#define SECURITY_INIT							\
+	.security_initcall.init : AT(ADDR(.security_initcall.init) - LOAD_OFFSET) { \
+		SECURITY_INITCALL					\
+	}
 
 #ifdef CONFIG_BLK_DEV_INITRD
 #define INIT_RAM_FS							\
