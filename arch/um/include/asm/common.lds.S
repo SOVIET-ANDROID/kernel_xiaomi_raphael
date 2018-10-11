@@ -59,8 +59,6 @@
 	__uml_initcall_end = .;
   }
 
-  SECURITY_INIT
-
   .exitcall : {
 	__exitcall_begin = .;
 	*(.exitcall.exit)
