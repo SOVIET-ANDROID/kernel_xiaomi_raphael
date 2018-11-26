@@ -164,7 +164,33 @@ static void bpf_jit_build_epilogue(u32 *image, struct codegen_context *ctx)
 	PPC_BLR();
 }
 
-static void bpf_jit_emit_func_call(u32 *image, struct codegen_context *ctx, u64 func)
+static void bpf_jit_emit_func_call_hlp(u32 *image, struct codegen_context *ctx,
+				       u64 func)
+{
+#ifdef PPC64_ELF_ABI_v1
+	/* func points to the function descriptor */
+	PPC_LI64(b2p[TMP_REG_2], func);
+	/* Load actual entry point from function descriptor */
+	PPC_BPF_LL(b2p[TMP_REG_1], b2p[TMP_REG_2], 0);
+	/* ... and move it to LR */
+	PPC_MTLR(b2p[TMP_REG_1]);
+	/*
+	 * Load TOC from function descriptor at offset 8.
+	 * We can clobber r2 since we get called through a
+	 * function pointer (so caller will save/restore r2)
+	 * and since we don't use a TOC ourself.
+	 */
+	PPC_BPF_LL(2, b2p[TMP_REG_2], 8);
+#else
+	/* We can clobber r12 */
+	PPC_FUNC_ADDR(12, func);
+	PPC_MTLR(12);
+#endif
+	PPC_BLRL();
+}
+
+static void bpf_jit_emit_func_call_rel(u32 *image, struct codegen_context *ctx,
+				       u64 func)
 {
 	unsigned int i, ctx_idx = ctx->idx;
 
@@ -269,7 +295,7 @@ static int bpf_jit_emit_tail_call(u32 *image, struct codegen_context *ctx, u32 o
 /* Assemble the body code between the prologue & epilogue */
 static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
 			      struct codegen_context *ctx,
-			      u32 *addrs)
+			      u32 *addrs, bool extra_pass)
 {
 	const struct bpf_insn *insn = fp->insnsi;
 	int flen = fp->len;
@@ -284,8 +310,9 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
 		u32 src_reg = b2p[insn[i].src_reg];
 		s16 off = insn[i].off;
 		s32 imm = insn[i].imm;
+		bool func_addr_fixed;
+		u64 func_addr;
 		u64 imm64;
-		u8 *func;
 		u32 true_cond;
 		u32 tmp_idx;
 
@@ -733,14 +760,20 @@ emit_clear:
 			break;
 
 		/*
-		 * Call kernel helper
+		 * Call kernel helper or bpf function
 		 */
 		case BPF_JMP | BPF_CALL:
 			ctx->seen |= SEEN_FUNC;
-			func = (u8 *) __bpf_call_base + imm;
 
-			bpf_jit_emit_func_call(image, ctx, (u64)func);
+			ret = bpf_jit_get_func_addr(fp, &insn[i], extra_pass,
+						    &func_addr, &func_addr_fixed);
+			if (ret < 0)
+				return ret;
 
+			if (func_addr_fixed)
+				bpf_jit_emit_func_call_hlp(image, ctx, func_addr);
+			else
+				bpf_jit_emit_func_call_rel(image, ctx, func_addr);
 			/* move return value from r3 to BPF_REG_0 */
 			PPC_MR(b2p[BPF_REG_0], 3);
 			break;
@@ -887,6 +920,14 @@ cond_branch:
 	return 0;
 }
 
+struct powerpc64_jit_data {
+	struct bpf_binary_header *header;
+	u32 *addrs;
+	u8 *image;
+	u32 proglen;
+	struct codegen_context ctx;
+};
+
 struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *fp)
 {
 	u32 proglen;
@@ -894,6 +935,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *fp)
 	u8 *image = NULL;
 	u32 *code_base;
 	u32 *addrs;
+	struct powerpc64_jit_data *jit_data;
 	struct codegen_context cgctx;
 	int pass;
 	int flen;
@@ -901,6 +943,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *fp)
 	struct bpf_prog *org_fp = fp;
 	struct bpf_prog *tmp_fp;
 	bool bpf_blinded = false;
+	bool extra_pass = false;
 
 	if (!fp->jit_requested)
 		return org_fp;
@@ -914,20 +957,41 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *fp)
 		fp = tmp_fp;
 	}
 
+	jit_data = fp->aux->jit_data;
+	if (!jit_data) {
+		jit_data = kzalloc(sizeof(*jit_data), GFP_KERNEL);
+		if (!jit_data) {
+			fp = org_fp;
+			goto out;
+		}
+		fp->aux->jit_data = jit_data;
+	}
+
 	flen = fp->len;
-	addrs = kcalloc(flen + 1, sizeof(*addrs), GFP_KERNEL);
+	addrs = jit_data->addrs;
+	if (addrs) {
+		cgctx = jit_data->ctx;
+		image = jit_data->image;
+		bpf_hdr = jit_data->header;
+		proglen = jit_data->proglen;
+		alloclen = proglen + FUNCTION_DESCR_SIZE;
+		extra_pass = true;
+		goto skip_init_ctx;
+	}
+
+	addrs = kzalloc((flen+1) * sizeof(*addrs), GFP_KERNEL);
 	if (addrs == NULL) {
 		fp = org_fp;
-		goto out;
+		goto out_addrs;
 	}
 
 	memset(&cgctx, 0, sizeof(struct codegen_context));
 
 	/* Scouting faux-generate pass 0 */
-	if (bpf_jit_build_body(fp, 0, &cgctx, addrs)) {
+	if (bpf_jit_build_body(fp, 0, &cgctx, addrs, false)) {
 		/* We hit something illegal or unsupported. */
 		fp = org_fp;
-		goto out;
+		goto out_addrs;
 	}
 
 	/*
@@ -945,9 +1009,10 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *fp)
 			bpf_jit_fill_ill_insns);
 	if (!bpf_hdr) {
 		fp = org_fp;
-		goto out;
+		goto out_addrs;
 	}
 
+skip_init_ctx:
 	code_base = (u32 *)(image + FUNCTION_DESCR_SIZE);
 
 	/* Code generation passes 1-2 */
@@ -955,7 +1020,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *fp)
 		/* Now build the prologue, body code & epilogue for real. */
 		cgctx.idx = 0;
 		bpf_jit_build_prologue(code_base, &cgctx);
-		bpf_jit_build_body(fp, code_base, &cgctx, addrs);
+		bpf_jit_build_body(fp, code_base, &cgctx, addrs, extra_pass);
 		bpf_jit_build_epilogue(code_base, &cgctx);
 
 		if (bpf_jit_enable > 1)
@@ -981,10 +1046,20 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *fp)
 	fp->jited_len = alloclen;
 
 	bpf_flush_icache(bpf_hdr, (u8 *)bpf_hdr + (bpf_hdr->pages * PAGE_SIZE));
+	if (!fp->is_func || extra_pass) {
+out_addrs:
+		kfree(addrs);
+		kfree(jit_data);
+		fp->aux->jit_data = NULL;
+	} else {
+		jit_data->addrs = addrs;
+		jit_data->ctx = cgctx;
+		jit_data->proglen = proglen;
+		jit_data->image = image;
+		jit_data->header = bpf_hdr;
+	}
 
 out:
-	kfree(addrs);
-
 	if (bpf_blinded)
 		bpf_jit_prog_release_other(fp, fp == org_fp ? tmp_fp : org_fp);
 
