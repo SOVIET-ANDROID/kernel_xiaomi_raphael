@@ -3185,6 +3185,11 @@ static int find_module_sections(struct module *mod, struct load_info *info)
 					     sizeof(*mod->srcu_struct_ptrs),
 					     &mod->num_srcu_structs);
 #endif
+#ifdef CONFIG_BPF_EVENTS
+	mod->bpf_raw_events = section_objs(info, "__bpf_raw_tp_map",
+					   sizeof(*mod->bpf_raw_events),
+					   &mod->num_bpf_raw_events);
+#endif
 #ifdef HAVE_JUMP_LABEL
 	mod->jump_entries = section_objs(info, "__jump_table",
 					sizeof(*mod->jump_entries),
