@@ -313,6 +313,28 @@ struct sde_rot_entry {
 };
 
 /*
+ * struct sde_rot_trace_entry - structure used to pass info to trace
+ */
+struct sde_rot_trace_entry {
+	u32 wb_idx;
+	u32 flags;
+	u32 input_format;
+	u32 input_width;
+	u32 input_height;
+	u32 src_x;
+	u32 src_y;
+	u32 src_w;
+	u32 src_h;
+	u32 output_format;
+	u32 output_width;
+	u32 output_height;
+	u32 dst_x;
+	u32 dst_y;
+	u32 dst_w;
+	u32 dst_h;
+};
+
+/*
  * struct sde_rot_perf - rotator session performance configuration
  * @list: list of performance configuration under one session
  * @config: current rotation configuration
