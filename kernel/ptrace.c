@@ -280,9 +280,9 @@ static bool ptrace_has_cap(const struct cred *cred, struct user_namespace *ns,
 	int ret;
 
 	if (mode & PTRACE_MODE_NOAUDIT)
-		ret = security_capable(cred, ns, CAP_SYS_PTRACE);
+		ret = security_capable(cred, ns, CAP_SYS_PTRACE, CAP_OPT_NOAUDIT);
 	else
-		ret = security_capable(cred, ns, CAP_SYS_PTRACE);
+		ret = security_capable(cred, ns, CAP_SYS_PTRACE, CAP_OPT_NONE);
 
 	return ret == 0;
 }
