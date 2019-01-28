@@ -1074,7 +1074,6 @@ bool bpf_opcode_in_insntable(u8 code)
  */
 static u64 ___bpf_prog_run(u64 *regs, const struct bpf_insn *insn, u64 *stack)
 {
-	u64 tmp;
 #define BPF_INSN_2_LBL(x, y)    [BPF_##x | BPF_##y] = &&x##_##y
 #define BPF_INSN_3_LBL(x, y, z) [BPF_##x | BPF_##y | BPF_##z] = &&x##_##y##_##z
 	static const void *jumptable[256] = {
@@ -1148,36 +1147,36 @@ select_insn:
 		(*(s64 *) &DST) >>= IMM;
 		CONT;
 	ALU64_MOD_X:
-		div64_u64_rem(DST, SRC, &tmp);
-		DST = tmp;
+		div64_u64_rem(DST, SRC, &AX);
+		DST = AX;
 		CONT;
 	ALU_MOD_X:
-		tmp = (u32) DST;
-		DST = do_div(tmp, (u32) SRC);
+		AX = (u32) DST;
+		DST = do_div(AX, (u32) SRC);
 		CONT;
 	ALU64_MOD_K:
-		div64_u64_rem(DST, IMM, &tmp);
-		DST = tmp;
+		div64_u64_rem(DST, IMM, &AX);
+		DST = AX;
 		CONT;
 	ALU_MOD_K:
-		tmp = (u32) DST;
-		DST = do_div(tmp, (u32) IMM);
+		AX = (u32) DST;
+		DST = do_div(AX, (u32) IMM);
 		CONT;
 	ALU64_DIV_X:
 		DST = div64_u64(DST, SRC);
 		CONT;
 	ALU_DIV_X:
-		tmp = (u32) DST;
-		do_div(tmp, (u32) SRC);
-		DST = (u32) tmp;
+		AX = (u32) DST;
+		do_div(AX, (u32) SRC);
+		DST = (u32) AX;
 		CONT;
 	ALU64_DIV_K:
 		DST = div64_u64(DST, IMM);
 		CONT;
 	ALU_DIV_K:
-		tmp = (u32) DST;
-		do_div(tmp, (u32) IMM);
-		DST = (u32) tmp;
+		AX = (u32) DST;
+		do_div(AX, (u32) IMM);
+		DST = (u32) AX;
 		CONT;
 	ALU_END_TO_BE:
 		switch (IMM) {
@@ -1446,7 +1445,7 @@ static u64 PROG_NAME_ARGS(stack_size)(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5, \
 				      const struct bpf_insn *insn) \
 { \
 	u64 stack[stack_size / sizeof(u64)]; \
-	u64 regs[MAX_BPF_REG]; \
+	u64 regs[MAX_BPF_EXT_REG]; \
 \
 	FP = (u64) (unsigned long) &stack[ARRAY_SIZE(stack)]; \
 	BPF_R1 = r1; \
