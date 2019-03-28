@@ -354,10 +354,10 @@ static int __fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
 	for (ret = 0; ret < res.fi->fib_nhs; ret++) {
 		struct fib_nh *nh = &res.fi->fib_nh[ret];
 
-		if (nh->nh_dev == dev) {
+		if (nh->fib_nh_dev == dev) {
 			dev_match = true;
 			break;
-		} else if (l3mdev_master_ifindex_rcu(nh->nh_dev) == dev->ifindex) {
+		} else if (l3mdev_master_ifindex_rcu(nh->fib_nh_dev) == dev->ifindex) {
 			dev_match = true;
 			break;
 		}
@@ -367,7 +367,7 @@ static int __fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
 		dev_match = true;
 #endif
 	if (dev_match) {
-		ret = FIB_RES_NH(res).nh_scope >= RT_SCOPE_HOST;
+		ret = FIB_RES_NH(res).fib_nh_scope >= RT_SCOPE_HOST;
 		return ret;
 	}
 	if (no_addr)
@@ -379,7 +379,7 @@ static int __fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
 	ret = 0;
 	if (fib_lookup(net, &fl4, &res, FIB_LOOKUP_IGNORE_LINKSTATE) == 0) {
 		if (res.type == RTN_UNICAST)
-			ret = FIB_RES_NH(res).nh_scope >= RT_SCOPE_HOST;
+			ret = FIB_RES_NH(res).fib_nh_scope >= RT_SCOPE_HOST;
 	}
 	return ret;
 

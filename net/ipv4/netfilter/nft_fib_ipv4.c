@@ -156,8 +156,8 @@ void nft_fib4_eval(const struct nft_expr *expr, struct nft_regs *regs,
 	for (i = 0; i < res.fi->fib_nhs; i++) {
 		struct fib_nh *nh = &res.fi->fib_nh[i];
 
-		if (nh->nh_dev == oif) {
-			found = nh->nh_dev;
+		if (nh->fib_nh_dev == oif) {
+			found = nh->fib_nh_dev;
 			goto ok;
 		}
 	}

@@ -51,7 +51,7 @@ static bool rpfilter_lookup_reverse(struct net *net, struct flowi4 *fl4,
 	for (ret = 0; ret < res.fi->fib_nhs; ret++) {
 		struct fib_nh *nh = &res.fi->fib_nh[ret];
 
-		if (nh->nh_dev == dev) {
+		if (nh->fib_nh_dev == dev) {
 			dev_match = true;
 			break;
 		}
