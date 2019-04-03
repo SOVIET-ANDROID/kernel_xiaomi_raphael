@@ -513,8 +513,8 @@ static struct bpf_verifier_state *push_stack(struct bpf_verifier_env *env,
 					     int insn_idx, int prev_insn_idx,
 					     bool speculative)
 {
-	struct bpf_verifier_stack_elem *elem;
 	struct bpf_verifier_state *cur = env->cur_state;
+	struct bpf_verifier_stack_elem *elem;
 	int err;
 
 	elem = kzalloc(sizeof(struct bpf_verifier_stack_elem), GFP_KERNEL);
