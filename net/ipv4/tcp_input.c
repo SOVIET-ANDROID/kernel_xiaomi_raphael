@@ -6129,6 +6129,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
 		 * so release it.
 		 */
 		if (req) {
+			tcp_try_undo_loss(sk, false);
 			inet_csk(sk)->icsk_retransmits = 0;
 			reqsk_fastopen_remove(sk, req, false);
 		} else {
@@ -6186,6 +6187,8 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
 		 * our SYNACK so stop the SYNACK timer.
 		 */
 		if (req) {
+			tcp_try_undo_loss(sk, false);
+			inet_csk(sk)->icsk_retransmits = 0;
 			/* We no longer need the request sock. */
 			reqsk_fastopen_remove(sk, req, false);
 			tcp_rearm_rto(sk);
