@@ -736,6 +736,8 @@ __SYSCALL(__NR_statx,     sys_statx)
 __SYSCALL(__NR_pidfd_send_signal, sys_pidfd_send_signal)
 #define __NR_pidfd_open 434
 __SYSCALL(__NR_pidfd_open, sys_pidfd_open)
+#define __NR_close_range 436
+__SYSCALL(__NR_close_range, sys_close_range)
 
 #undef __NR_syscalls
 #define __NR_syscalls 435
