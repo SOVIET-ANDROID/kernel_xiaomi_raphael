@@ -9610,6 +9610,7 @@ static void attach_tasks(struct lb_env *env)
 	rq_unlock(env->dst_rq, &rf);
 }
 
+#ifdef CONFIG_NO_HZ_COMMON
 static inline bool cfs_rq_has_blocked(struct cfs_rq *cfs_rq)
 {
 	if (cfs_rq->avg.load_avg)
@@ -9639,6 +9640,19 @@ static inline bool others_have_blocked(struct rq *rq)
 
 	return false;
 }
+
+static inline void update_blocked_load_status(struct rq *rq, bool has_blocked)
+{
+	rq->last_blocked_load_update_tick = jiffies;
+
+	if (!has_blocked)
+		rq->has_blocked_load = 0;
+}
+#else
+static inline bool cfs_rq_has_blocked(struct cfs_rq *cfs_rq) { return false; }
+static inline bool others_have_blocked(struct rq *rq) { return false; }
+static inline void update_blocked_load_status(struct rq *rq, bool has_blocked) {}
+#endif
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 
@@ -9678,9 +9692,7 @@ static void update_blocked_averages(int cpu)
 	update_dl_rq_load_avg(rq_clock_pelt(rq), rq, 0);
 	update_thermal_load_avg(rq_clock_thermal(rq), rq, thermal_pressure);
 	update_irq_load_avg(rq, 0);
-#ifdef CONFIG_NO_HZ_COMMON
-	rq->last_blocked_load_update_tick = jiffies;
-#endif
+	update_blocked_load_status(rq, !done);
 	rq_unlock_irqrestore(rq, &rf);
 }
 
@@ -9743,9 +9755,7 @@ static inline void update_blocked_averages(int cpu)
 	update_rt_rq_load_avg(rq_clock_pelt(rq), rq, 0);
 	update_dl_rq_load_avg(rq_clock_pelt(rq), rq, 0);
 	update_irq_load_avg(rq, 0);
-#ifdef CONFIG_NO_HZ_COMMON
-	rq->last_blocked_load_update_tick = jiffies;
-#endif
+	update_blocked_load_status(rq, cfs_rq_has_blocked(cfs_rq) || others_have_blocked(rq));
 	rq_unlock_irqrestore(rq, &rf);
 }
 
