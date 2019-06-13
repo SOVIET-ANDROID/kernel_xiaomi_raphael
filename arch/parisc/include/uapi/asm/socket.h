@@ -104,4 +104,6 @@
 
 #define SO_ZEROCOPY		0x4035
 
+#define SO_DETACH_REUSEPORT_BPF 0x4042
+
 #endif /* _UAPI_ASM_SOCKET_H */
