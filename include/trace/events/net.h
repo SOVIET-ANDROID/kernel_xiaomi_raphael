@@ -59,7 +59,7 @@ TRACE_EVENT(net_dev_start_xmit,
 		__entry->gso_size = skb_shinfo(skb)->gso_size;
 		__entry->gso_segs = skb_shinfo(skb)->gso_segs;
 		__entry->gso_type = skb_shinfo(skb)->gso_type;
-		__entry->utctime = ktime_get_tai_ns();
+		__entry->utctime = ktime_get_clocktai_ns();
 
 	),
 
@@ -93,7 +93,7 @@ TRACE_EVENT(net_receive_skb_exit,
 
 	TP_fast_assign(
 		__entry->skbaddr = skb;
-		__entry->utctime = ktime_get_tai_ns();
+		__entry->utctime = ktime_get_clocktai_ns();
 
 	),
 
@@ -122,7 +122,7 @@ TRACE_EVENT(net_dev_xmit,
 		__entry->len = skb_len;
 		__entry->rc = rc;
 		__assign_str(name, dev->name);
-		__entry->utctime = ktime_get_tai_ns();
+		__entry->utctime = ktime_get_clocktai_ns();
 	),
 
 	TP_printk("dev=%s skbaddr=%pK len=%u rc=%d UTC: %ld",
@@ -147,7 +147,7 @@ DECLARE_EVENT_CLASS(net_dev_template,
 		__entry->skbaddr = skb;
 		__entry->len = skb->len;
 		__assign_str(name, skb->dev->name);
-		__entry->utctime = ktime_get_tai_ns();
+		__entry->utctime = ktime_get_clocktai_ns();
 	),
 
 	TP_printk("dev=%s skbaddr=%pK len=%u UTC: %ld",
@@ -223,7 +223,7 @@ DECLARE_EVENT_CLASS(net_dev_rx_verbose_template,
 		__entry->nr_frags = skb_shinfo(skb)->nr_frags;
 		__entry->gso_size = skb_shinfo(skb)->gso_size;
 		__entry->gso_type = skb_shinfo(skb)->gso_type;
-		__entry->utctime = ktime_get_tai_ns();
+		__entry->utctime = ktime_get_clocktai_ns();
 
 	),
 
