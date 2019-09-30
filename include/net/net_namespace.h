@@ -35,6 +35,7 @@
 #include <linux/ns_common.h>
 #include <linux/idr.h>
 #include <linux/skbuff.h>
+#include <linux/notifier.h>
 
 struct user_namespace;
 struct proc_dir_entry;
@@ -86,6 +87,8 @@ struct net {
 	struct list_head 	dev_base_head;
 	struct hlist_head 	*dev_name_head;
 	struct hlist_head	*dev_index_head;
+	struct raw_notifier_head	netdev_chain;
+
 	unsigned int		dev_base_seq;	/* protected by rtnl_mutex */
 	int			ifindex;
 	unsigned int		dev_unreg_count;
