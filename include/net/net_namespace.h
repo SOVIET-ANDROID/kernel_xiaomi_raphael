@@ -306,7 +306,8 @@ static inline struct net *read_pnet(const possible_net_t *pnet)
 
 #define for_each_net(VAR)				\
 	list_for_each_entry(VAR, &net_namespace_list, list)
-
+#define for_each_net_continue_reverse(VAR)		\
+	list_for_each_entry_continue_reverse(VAR, &net_namespace_list, list)
 #define for_each_net_rcu(VAR)				\
 	list_for_each_entry_rcu(VAR, &net_namespace_list, list)
 
