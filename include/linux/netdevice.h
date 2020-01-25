@@ -880,6 +880,11 @@ struct macsec_ops {
 };
 #endif
 
+struct netdev_net_notifier {
+	struct list_head list;
+	struct notifier_block *nb;
+};
+
 /*
  * This structure defines the management hooks for network devices.
  * The following hooks can be defined; unless noted otherwise, they are
@@ -1688,6 +1693,9 @@ enum netdev_priv_flags {
  *			switch port.
  *
  *	@threaded:	napi threaded mode is enabled
+ *	@net_notifier_list:	List of per-net netdev notifier block
+ *				that follow this device when it is moved
+ *				to another network namespace.
  *
  *	@macsec_ops:    MACsec offloading ops
  *
@@ -1971,6 +1979,8 @@ struct net_device {
 	struct lock_class_key	*qdisc_running_key;
 	bool			proto_down;
 	unsigned		threaded:1;
+
+	struct list_head	net_notifier_list;
 
 #if IS_ENABLED(CONFIG_MACSEC)
 	/* MACsec management functions */
@@ -2387,6 +2397,12 @@ int unregister_netdevice_notifier(struct notifier_block *nb);
 int register_netdevice_notifier_net(struct net *net, struct notifier_block *nb);
 int unregister_netdevice_notifier_net(struct net *net,
 				      struct notifier_block *nb);
+int register_netdevice_notifier_dev_net(struct net_device *dev,
+					struct notifier_block *nb,
+					struct netdev_net_notifier *nn);
+int unregister_netdevice_notifier_dev_net(struct net_device *dev,
+					  struct notifier_block *nb,
+					  struct netdev_net_notifier *nn);
 
 struct netdev_notifier_info {
 	struct net_device *dev;
