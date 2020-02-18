@@ -539,6 +539,8 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
 		newtp->rack.mstamp = 0;
 		newtp->rack.advanced = 0;
 
+		tcp_bpf_clone(sk, newsk);
+
 		__TCP_INC_STATS(sock_net(sk), TCP_MIB_PASSIVEOPENS);
 	}
 	return newsk;
