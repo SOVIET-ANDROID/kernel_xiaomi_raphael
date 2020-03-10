@@ -123,6 +123,7 @@ struct task_struct init_task
 	INIT_TRACE_RECURSION
 	INIT_TASK_RCU_PREEMPT(init_task)
 	INIT_TASK_RCU_TASKS(init_task)
+	INIT_TASK_RCU_TRACE(init_task)
 	INIT_CPUSET_SEQ(init_task)
 	INIT_RT_MUTEXES(init_task)
 	INIT_PREV_CPUTIME(init_task)
