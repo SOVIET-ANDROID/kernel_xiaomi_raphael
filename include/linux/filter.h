@@ -1113,7 +1113,6 @@ bpf_address_lookup(unsigned long addr, unsigned long *size,
 
 void bpf_prog_kallsyms_add(struct bpf_prog *fp);
 void bpf_prog_kallsyms_del(struct bpf_prog *fp);
-void bpf_get_prog_name(const struct bpf_prog *prog, char *sym);
 
 #else /* CONFIG_BPF_JIT */
 
@@ -1175,11 +1174,6 @@ static inline void bpf_prog_kallsyms_add(struct bpf_prog *fp)
 
 static inline void bpf_prog_kallsyms_del(struct bpf_prog *fp)
 {
-}
-
-static inline void bpf_get_prog_name(const struct bpf_prog *prog, char *sym)
-{
-	sym[0] = '\0';
 }
 
 #endif /* CONFIG_BPF_JIT */
