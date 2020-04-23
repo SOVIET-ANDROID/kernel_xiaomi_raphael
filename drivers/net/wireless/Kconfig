@@ -132,7 +132,6 @@ config CNSS_CRYPTO
 
 config CLD_LL_CORE
 	tristate "QTI core WLAN driver for QCA6174 chipset"
-	select NL80211_TESTMODE
 	select WEXT_CORE
 	select WEXT_PRIV
 	select WEXT_SPY
