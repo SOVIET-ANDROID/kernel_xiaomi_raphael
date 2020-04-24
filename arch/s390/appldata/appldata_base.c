@@ -50,10 +50,9 @@ static struct platform_device *appldata_pdev;
  */
 static const char appldata_proc_name[APPLDATA_PROC_NAME_LENGTH] = "appldata";
 static int appldata_timer_handler(struct ctl_table *ctl, int write,
-				  void __user *buffer, size_t *lenp, loff_t *ppos);
+				  void *buffer, size_t *lenp, loff_t *ppos);
 static int appldata_interval_handler(struct ctl_table *ctl, int write,
-					 void __user *buffer,
-					 size_t *lenp, loff_t *ppos);
+				     void *buffer, size_t *lenp, loff_t *ppos);
 
 static struct ctl_table_header *appldata_sysctl_header;
 static struct ctl_table appldata_table[] = {
@@ -203,7 +202,7 @@ static void __appldata_vtimer_setup(int cmd)
  */
 static int
 appldata_timer_handler(struct ctl_table *ctl, int write,
-			   void __user *buffer, size_t *lenp, loff_t *ppos)
+			   void *buffer, size_t *lenp, loff_t *ppos)
 {
 	unsigned int len;
 	char buf[2];
@@ -245,7 +244,7 @@ out:
  */
 static int
 appldata_interval_handler(struct ctl_table *ctl, int write,
-			   void __user *buffer, size_t *lenp, loff_t *ppos)
+			   void *buffer, size_t *lenp, loff_t *ppos)
 {
 	unsigned int len;
 	int interval;
@@ -289,7 +288,7 @@ out:
  */
 static int
 appldata_generic_handler(struct ctl_table *ctl, int write,
-			   void __user *buffer, size_t *lenp, loff_t *ppos)
+			   void *buffer, size_t *lenp, loff_t *ppos)
 {
 	struct appldata_ops *ops = NULL, *tmp_ops;
 	unsigned int len;

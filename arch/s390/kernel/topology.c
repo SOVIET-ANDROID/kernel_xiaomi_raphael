@@ -538,7 +538,7 @@ static int __init topology_setup(char *str)
 early_param("topology", topology_setup);
 
 static int topology_ctl_handler(struct ctl_table *ctl, int write,
-				void __user *buffer, size_t *lenp, loff_t *ppos)
+				void *buffer, size_t *lenp, loff_t *ppos)
 {
 	unsigned int len;
 	int new_mode;

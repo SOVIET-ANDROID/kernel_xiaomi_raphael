@@ -1175,7 +1175,7 @@ static bool seccomp_actions_logged_from_names(u32 *actions_logged, char *names)
 }
 
 static int seccomp_actions_logged_handler(struct ctl_table *ro_table, int write,
-					  void __user *buffer, size_t *lenp,
+					  void *buffer, size_t *lenp,
 					  loff_t *ppos)
 {
 	char names[sizeof(seccomp_actions_avail)];
