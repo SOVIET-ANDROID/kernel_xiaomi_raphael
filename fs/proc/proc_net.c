@@ -106,6 +106,25 @@ int single_release_net(struct inode *ino, struct file *f)
 }
 EXPORT_SYMBOL_GPL(single_release_net);
 
+int bpf_iter_init_seq_net(void *priv_data)
+{
+#ifdef CONFIG_NET_NS
+	struct seq_net_private *p = priv_data;
+
+	p->net = get_net(current->nsproxy->net_ns);
+#endif
+	return 0;
+}
+
+void bpf_iter_fini_seq_net(void *priv_data)
+{
+#ifdef CONFIG_NET_NS
+	struct seq_net_private *p = priv_data;
+
+	put_net(p->net);
+#endif
+}
+
 static struct net *get_proc_task_net(struct inode *dir)
 {
 	struct task_struct *task;
