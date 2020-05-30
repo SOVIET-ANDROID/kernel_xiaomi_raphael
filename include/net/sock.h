@@ -2619,6 +2619,6 @@ static inline void sk_pacing_shift_update(struct sock *sk, int val)
 int sockev_register_notify(struct notifier_block *nb);
 int sockev_unregister_notify(struct notifier_block *nb);
 
-int sock_bindtoindex(struct sock *sk, int ifindex);
+int sock_bindtoindex(struct sock *sk, int ifindex, bool lock_sk);
 
 #endif	/* _SOCK_H */
