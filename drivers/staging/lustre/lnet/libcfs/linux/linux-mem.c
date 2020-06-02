@@ -37,7 +37,7 @@ void *libcfs_kvzalloc(size_t size, gfp_t flags)
 
 	ret = kzalloc(size, flags | __GFP_NOWARN);
 	if (!ret)
-		ret = __vmalloc(size, flags | __GFP_ZERO, PAGE_KERNEL);
+		ret = __vmalloc(size, flags | __GFP_ZERO);
 	return ret;
 }
 EXPORT_SYMBOL(libcfs_kvzalloc);

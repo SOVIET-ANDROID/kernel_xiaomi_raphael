@@ -186,7 +186,7 @@ void *ceph_kvmalloc(size_t size, gfp_t flags)
 			return ptr;
 	}
 
-	return __vmalloc(size, flags, PAGE_KERNEL);
+	return __vmalloc(size, flags);
 }
 
 
