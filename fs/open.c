@@ -1223,10 +1223,7 @@ EXPORT_SYMBOL(sys_close);
 SYSCALL_DEFINE3(close_range, unsigned int, fd, unsigned int, max_fd,
 		unsigned int, flags)
 {
-	if (flags)
-		return -EINVAL;
-
-	return __close_range(current->files, fd, max_fd);
+	return __close_range(fd, max_fd, flags);
 }
 
 /*
