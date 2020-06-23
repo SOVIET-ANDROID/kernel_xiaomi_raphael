@@ -440,6 +440,7 @@ struct udp_iter_state {
 	struct seq_net_private  p;
 	sa_family_t		family;
 	int			bucket;
+	struct udp_seq_afinfo	*bpf_seq_afinfo;
 	struct udp_table	*udp_table;
 };
 
