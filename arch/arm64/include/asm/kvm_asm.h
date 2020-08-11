@@ -39,9 +39,9 @@
 /* Translate a kernel address of @sym into its equivalent linear mapping */
 #define kvm_ksym_ref(sym)						\
 	({								\
-		void *val = &sym;					\
+		void *val = __va_function(sym);				\
 		if (!is_kernel_in_hyp_mode())				\
-			val = phys_to_virt((u64)&sym - kimage_voffset);	\
+			val = phys_to_virt((u64)val - kimage_voffset);	\
 		val;							\
 	 })
 
