@@ -288,10 +288,6 @@ struct ftrace_likely_data {
 #define __assume_aligned(a, ...)
 #endif
 
-#ifndef __no_fgcse
-# define __no_fgcse
-#endif
-
 
 /* Are two types/vars the same type (ignoring qualifiers)? */
 #ifndef __same_type
