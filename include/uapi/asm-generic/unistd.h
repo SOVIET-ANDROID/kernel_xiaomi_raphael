@@ -738,9 +738,11 @@ __SYSCALL(__NR_pidfd_send_signal, sys_pidfd_send_signal)
 __SYSCALL(__NR_pidfd_open, sys_pidfd_open)
 #define __NR_close_range 436
 __SYSCALL(__NR_close_range, sys_close_range)
+#define __NR_epoll_pwait2 441
+__SC_COMP(__NR_epoll_pwait2, sys_epoll_pwait2, compat_sys_epoll_pwait2)
 
 #undef __NR_syscalls
-#define __NR_syscalls 435
+#define __NR_syscalls 442
 
 /*
  * All syscalls below here should go away really,

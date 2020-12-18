@@ -342,6 +342,7 @@
 424	common	pidfd_send_signal	sys_pidfd_send_signal
 434	common	pidfd_open		sys_pidfd_open
 436	common	close_range		sys_close_range
+441	common	epoll_pwait2		sys_epoll_pwait2
 
 #
 # x32-specific system call numbers start at 512 to avoid cache impact
