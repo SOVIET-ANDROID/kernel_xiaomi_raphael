@@ -2948,9 +2948,9 @@ static void smack_msg_msg_free_security(struct msg_msg *msg)
  *
  * Returns a pointer to the smack value
  */
-static struct smack_known *smack_of_shm(struct shmid_kernel *shp)
+static struct smack_known *smack_of_shm(struct kern_ipc_perm *shp)
 {
-	return (struct smack_known *)shp->shm_perm.security;
+	return (struct smack_known *)shp->security;
 }
 
 /**
@@ -2959,9 +2959,9 @@ static struct smack_known *smack_of_shm(struct shmid_kernel *shp)
  *
  * Returns 0
  */
-static int smack_shm_alloc_security(struct shmid_kernel *shp)
+static int smack_shm_alloc_security(struct kern_ipc_perm *shp)
 {
-	struct kern_ipc_perm *isp = &shp->shm_perm;
+	struct kern_ipc_perm *isp = shp;
 	struct smack_known *skp = smk_of_current();
 
 	isp->security = skp;
@@ -2974,9 +2974,9 @@ static int smack_shm_alloc_security(struct shmid_kernel *shp)
  *
  * Clears the blob pointer
  */
-static void smack_shm_free_security(struct shmid_kernel *shp)
+static void smack_shm_free_security(struct kern_ipc_perm *shp)
 {
-	struct kern_ipc_perm *isp = &shp->shm_perm;
+	struct kern_ipc_perm *isp = shp;
 
 	isp->security = NULL;
 }
@@ -2988,7 +2988,7 @@ static void smack_shm_free_security(struct shmid_kernel *shp)
  *
  * Returns 0 if current has the requested access, error code otherwise
  */
-static int smk_curacc_shm(struct shmid_kernel *shp, int access)
+static int smk_curacc_shm(struct kern_ipc_perm *shp, int access)
 {
 	struct smack_known *ssp = smack_of_shm(shp);
 	struct smk_audit_info ad;
@@ -2996,7 +2996,7 @@ static int smk_curacc_shm(struct shmid_kernel *shp, int access)
 
 #ifdef CONFIG_AUDIT
 	smk_ad_init(&ad, __func__, LSM_AUDIT_DATA_IPC);
-	ad.a.u.ipc_id = shp->shm_perm.id;
+	ad.a.u.ipc_id = shp->id;
 #endif
 	rc = smk_curacc(ssp, access, &ad);
 	rc = smk_bu_current("shm", ssp, access, rc);
@@ -3010,7 +3010,7 @@ static int smk_curacc_shm(struct shmid_kernel *shp, int access)
  *
  * Returns 0 if current has the requested access, error code otherwise
  */
-static int smack_shm_associate(struct shmid_kernel *shp, int shmflg)
+static int smack_shm_associate(struct kern_ipc_perm *shp, int shmflg)
 {
 	int may;
 
@@ -3025,7 +3025,7 @@ static int smack_shm_associate(struct shmid_kernel *shp, int shmflg)
  *
  * Returns 0 if current has the requested access, error code otherwise
  */
-static int smack_shm_shmctl(struct shmid_kernel *shp, int cmd)
+static int smack_shm_shmctl(struct kern_ipc_perm *shp, int cmd)
 {
 	int may;
 
@@ -3060,7 +3060,7 @@ static int smack_shm_shmctl(struct shmid_kernel *shp, int cmd)
  *
  * Returns 0 if current has the requested access, error code otherwise
  */
-static int smack_shm_shmat(struct shmid_kernel *shp, char __user *shmaddr,
+static int smack_shm_shmat(struct kern_ipc_perm *shp, char __user *shmaddr,
 			   int shmflg)
 {
 	int may;
