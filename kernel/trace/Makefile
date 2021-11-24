@@ -2,6 +2,8 @@
 
 # Do not instrument the tracer itself:
 
+ccflags-y := -UNOTRACE
+
 ifdef CONFIG_FUNCTION_TRACER
 ORIG_CFLAGS := $(KBUILD_CFLAGS)
 KBUILD_CFLAGS = $(subst $(CC_FLAGS_FTRACE),,$(ORIG_CFLAGS))

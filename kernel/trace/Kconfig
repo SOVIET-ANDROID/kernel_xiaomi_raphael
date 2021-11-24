@@ -744,6 +744,16 @@ config TRACING_EVENTS_GPIO
 	help
 	  Enable tracing events for gpio subsystem
 
+config MINIMAL_TRACING_FOR_IORAP
+    bool "Minimal tracing for Android iorapd"
+    help
+      Disable tracking globally and enable it only for mm/filemap.c which
+      is used by Android iorapd to madvise files during apps launch.
+      Used to minimize tracking overhead on production builds, saves around
+      0.5mb in compressed image size.
+
+      Say Y if not debugging.
+
 endif # FTRACE
 
 endif # TRACING_SUPPORT

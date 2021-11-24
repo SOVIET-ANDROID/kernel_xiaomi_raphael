@@ -9,6 +9,10 @@
  * most "normal" filesystems (but you don't /have/ to use this:
  * the NFS filesystem used to do this differently, for example)
  */
+#ifdef CONFIG_MINIMAL_TRACING_FOR_IORAP
+#undef NOTRACE
+#endif
+
 #include <linux/export.h>
 #include <linux/compiler.h>
 #include <linux/dax.h>

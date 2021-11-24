@@ -10,6 +10,7 @@
 #include <linux/binfmts.h>
 #include <linux/sched/idle.h>
 
+#ifndef CONFIG_MINIMAL_TRACING_FOR_IORAP
 /*
  * Tracepoint for calling kthread_stop, performed to end a kthread:
  */
@@ -98,6 +99,11 @@ TRACE_EVENT(sched_enq_deq_task,
 			, __entry->demand, __entry->pred_demand
 			)
 );
+#else
+#define trace_sched_kthread_stop(...) {}
+#define trace_sched_kthread_stop_ret(...) {}
+#define trace_sched_enq_deq_task(...) {}
+#endif /* CONFIG_MINIMAL_TRACING_FOR_IORAP */
 
 /*
  * Tracepoint for waking up a task:
@@ -231,6 +237,7 @@ TRACE_EVENT(sched_switch,
 		__entry->next_comm, __entry->next_pid, __entry->next_prio)
 );
 
+#ifndef CONFIG_MINIMAL_TRACING_FOR_IORAP
 /*
  * Tracepoint for a task being migrated:
  */
@@ -260,6 +267,9 @@ TRACE_EVENT(sched_migrate_task,
 		  __entry->comm, __entry->pid, __entry->prio,
 		  __entry->orig_cpu, __entry->dest_cpu)
 );
+#else
+#define trace_sched_migrate_task(...) {}
+#endif /* CONFIG_MINIMAL_TRACING_FOR_IORAP */
 
 /*
  * Tracepoint for load balancing:
@@ -268,6 +278,7 @@ TRACE_EVENT(sched_migrate_task,
 #if NR_CPUS > 32
 #error "Unsupported NR_CPUS for lb tracepoint."
 #endif
+#ifndef CONFIG_MINIMAL_TRACING_FOR_IORAP
 TRACE_EVENT(sched_load_balance,
 
 	TP_PROTO(int cpu, enum cpu_idle_type idle, int balance,
@@ -422,6 +433,12 @@ TRACE_EVENT(sched_load_balance_stats,
 	TP_printk("busiest_group=%#lx busiest_type=%d busiest_avg_load=%ld busiest_lpt=%ld local_group=%#lx local_type=%d local_avg_load=%ld local_lpt=%ld domain_avg_load=%ld imbalance=%ld",
 		__entry->busiest, __entry->bgp_type, __entry->bavg_load, __entry->blpt, __entry->local, __entry->lgp_type, __entry->lavg_load, __entry->llpt, __entry->sds_avg, __entry->imbalance)
 );
+#else
+#define trace_sched_load_balance(...) {}
+#define trace_sched_load_balance_nohz_kick(...) {}
+#define trace_sched_load_balance_sg_stats(...) {}
+#define trace_sched_load_balance_stats(...) {}
+#endif /* CONFIG_MINIMAL_TRACING_FOR_IORAP */
 #endif
 
 DECLARE_EVENT_CLASS(sched_process_template,
@@ -453,7 +470,7 @@ DEFINE_EVENT(sched_process_template, sched_process_free,
 	     TP_PROTO(struct task_struct *p),
 	     TP_ARGS(p));
 
-
+#ifndef CONFIG_MINIMAL_TRACING_FOR_IORAP
 /*
  * Tracepoint for a task exiting:
  */
@@ -492,6 +509,11 @@ TRACE_EVENT(sched_process_wait,
 	TP_printk("comm=%s pid=%d prio=%d",
 		  __entry->comm, __entry->pid, __entry->prio)
 );
+#else
+#define trace_sched_process_exit(...) {}
+#define trace_sched_wait_task(...) {}
+#define trace_sched_process_wait(...) {}
+#endif /* CONFIG_MINIMAL_TRACING_FOR_IORAP */
 
 /*
  * Tracepoint for do_fork:
@@ -521,6 +543,7 @@ TRACE_EVENT(sched_process_fork,
 		__entry->child_comm, __entry->child_pid)
 );
 
+#ifndef CONFIG_MINIMAL_TRACING_FOR_IORAP
 /*
  * Tracepoint for exec:
  */
@@ -695,8 +718,19 @@ TRACE_EVENT(sched_pi_setprio,
 			__entry->comm, __entry->pid,
 			__entry->oldprio, __entry->newprio)
 );
+#else
+#define trace_sched_process_exec(...) {}
+#define trace_sched_stat_wait(...) {}
+#define trace_sched_stat_sleep(...) {}
+#define trace_sched_stat_iowait(...) {}
+#define trace_sched_stat_blocked(...) {}
+#define trace_sched_blocked_reason(...) {}
+#define trace_sched_stat_runtime(...) {}
+#define trace_sched_pi_setprio(...) {}
+#endif /* CONFIG_MINIMAL_TRACING_FOR_IORAP */
 
 #ifdef CONFIG_DETECT_HUNG_TASK
+#ifndef CONFIG_MINIMAL_TRACING_FOR_IORAP
 TRACE_EVENT(sched_process_hang,
 	TP_PROTO(struct task_struct *tsk),
 	TP_ARGS(tsk),
@@ -713,8 +747,12 @@ TRACE_EVENT(sched_process_hang,
 
 	TP_printk("comm=%s pid=%d", __entry->comm, __entry->pid)
 );
+#else
+#define trace_sched_process_hang(...) {}
+#endif /* CONFIG_MINIMAL_TRACING_FOR_IORAP */
 #endif /* CONFIG_DETECT_HUNG_TASK */
 
+#ifndef CONFIG_MINIMAL_TRACING_FOR_IORAP
 DECLARE_EVENT_CLASS(sched_move_task_template,
 
 	TP_PROTO(struct task_struct *tsk, int src_cpu, int dst_cpu),
@@ -822,8 +860,16 @@ TRACE_EVENT(sched_wake_idle_without_ipi,
 
 	TP_printk("cpu=%d", __entry->cpu)
 );
+#else
+#define trace_sched_move_numa(...) {}
+#define trace_sched_stick_numa(...) {}
+#define trace_sched_swap_numa(...) {}
+#define trace_sched_wake_idle_without_ipi(...) {}
+#endif /* CONFIG_MINIMAL_TRACING_FOR_IORAP */
 
 #ifdef CONFIG_SMP
+
+#ifndef CONFIG_MINIMAL_TRACING_FOR_IORAP
 #ifdef CREATE_TRACE_POINTS
 static inline
 int __trace_sched_cpu(struct cfs_rq *cfs_rq, struct sched_entity *se)
@@ -979,11 +1025,17 @@ TRACE_EVENT(sched_load_se,
 		  __entry->cpu, __get_str(path), __entry->comm,
 		  __entry->pid, __entry->load, __entry->util)
 );
+#else
+#define trace_sched_load_cfs_rq(...) {}
+#define trace_sched_load_rt_rq(...) {}
+#define trace_sched_load_se(...) {}
+#endif /* CONFIG_MINIMAL_TRACING_FOR_IORAP */
 
 /*
  * Tracepoint for task_group load tracking:
  */
 #ifdef CONFIG_FAIR_GROUP_SCHED
+#ifndef CONFIG_MINIMAL_TRACING_FOR_IORAP
 TRACE_EVENT(sched_load_tg,
 
 	TP_PROTO(struct cfs_rq *cfs_rq),
@@ -1007,8 +1059,12 @@ TRACE_EVENT(sched_load_tg,
 	TP_printk("cpu=%d path=%s load=%ld", __entry->cpu, __get_str(path),
 		  __entry->load)
 );
+#else
+#define trace_sched_load_tg(...) {}
+#endif /* CONFIG_MINIMAL_TRACING_FOR_IORAP */
 #endif /* CONFIG_FAIR_GROUP_SCHED */
 
+#ifndef CONFIG_MINIMAL_TRACING_FOR_IORAP
 /*
  * Tracepoint for accounting CPU  boosted utilization
  */
@@ -1596,8 +1652,33 @@ TRACE_EVENT(sched_isolate,
 
 #include "walt.h"
 
+#else
+#define trace_sched_boost_cpu(...) {}
+#define trace_core_ctl_eval_need(...) {}
+#define trace_core_ctl_set_busy(...) {}
+#define trace_core_ctl_set_boost(...) {}
+#define trace_core_ctl_update_nr_need(...) {}
+#define trace_sched_tune_tasks_update(...) {}
+#define trace_sched_tune_boostgroup_update(...) {}
+#define trace_sched_boost_task(...) {}
+#define trace_sched_overutilized(...) {}
+#define trace_sched_find_best_target(...) {}
+#define trace_sched_util_est_task(...) {}
+#define trace_sched_util_est_cpu(...) {}
+#define trace_sched_capacity_update(...) {}
+#define trace_sched_cpu_util(...) {}
+#define trace_sched_energy_diff(...) {}
+#define trace_sched_task_util(...) {}
+#define trace_sched_task_util_enabled(...) false
+#define trace_sched_get_nr_running_avg(...) {}
+#define trace_sched_isolate(...) {}
+#define trace_sched_isolate_enabled(...) false
+#define trace_sched_load_balance_skip_tasks(...) {}
+#endif /* CONFIG_MINIMAL_TRACING_FOR_IORAP */
+
 #endif /* CONFIG_SMP */
 
+#ifndef CONFIG_MINIMAL_TRACING_FOR_IORAP
 TRACE_EVENT(sched_preempt_disable,
 
 	TP_PROTO(u64 delta, bool irqs_disabled,
@@ -1629,6 +1710,9 @@ TRACE_EVENT(sched_preempt_disable,
 				__entry->caddr0, __entry->caddr1,
 				__entry->caddr2, __entry->caddr3)
 );
+#else
+#define trace_sched_preempt_disable(...) {}
+#endif /* CONFIG_MINIMAL_TRACING_FOR_IORAP */
 
 #endif /* _TRACE_SCHED_H */
 
