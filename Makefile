@@ -377,10 +377,10 @@ else
 HOSTCC	= gcc
 HOSTCXX	= g++
 endif
-HOSTCFLAGS   := -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 \
+HOSTCFLAGS   := -Wall -Wmissing-prototypes -Wstrict-prototypes -O3 \
 		-fomit-frame-pointer -std=gnu89 -pipe \
                 -Wno-deprecated-declarations $(HOST_LFS_CFLAGS)
-HOSTCXXFLAGS := -O2 $(HOST_LFS_CFLAGS)
+HOSTCXXFLAGS := -O3 $(HOST_LFS_CFLAGS)
 HOSTLDFLAGS  := $(HOST_LFS_LDFLAGS)
 HOST_LOADLIBES := $(HOST_LFS_LIBS)
 
@@ -738,9 +738,9 @@ export LLVM_AR LLVM_NM
 # Set O3 optimization level for LTO with most linkers
 LDFLAGS		+= -O3
 LDFLAGS		+= --plugin-opt=O3
-LDFLAGS		+= --lto-O3
 LDFLAGS		+= --plugin-opt=-import-instr-limit=40
 endif
+
 
 # The arch Makefile can set ARCH_{CPP,A,C}FLAGS to override the default
 # values of the respective KBUILD_* variables
