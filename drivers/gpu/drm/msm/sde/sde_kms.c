@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
@@ -1191,11 +1192,12 @@ void sde_kms_release_splash_resource(struct sde_kms *sde_kms,
 	/* remove the votes if all displays are done with splash */
 	if (!sde_kms->splash_data.num_splash_displays) {
 		for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++)
-			sde_power_data_bus_set_quota(&priv->phandle,
-					sde_kms->core_client,
-					SDE_POWER_HANDLE_DATA_BUS_CLIENT_RT, i,
-					SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA,
-					SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA);
+			if (sde_kms->perf.sde_rsc_available)
+				sde_power_data_bus_set_quota(&priv->phandle,
+						sde_kms->core_client,
+						SDE_POWER_HANDLE_DATA_BUS_CLIENT_RT, i,
+						SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA,
+						SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA);
 
 		sde_power_resource_enable(&priv->phandle,
 				sde_kms->core_client, false);
