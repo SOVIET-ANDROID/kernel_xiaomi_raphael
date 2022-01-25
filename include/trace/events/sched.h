@@ -721,11 +721,16 @@ TRACE_EVENT(sched_pi_setprio,
 #else
 #define trace_sched_process_exec(...) {}
 #define trace_sched_stat_wait(...) {}
+#define trace_sched_stat_wait_enabled(...) false
 #define trace_sched_stat_sleep(...) {}
+#define trace_sched_stat_sleep_enabled(...) false
 #define trace_sched_stat_iowait(...) {}
+#define trace_sched_stat_iowait_enabled(...) false
 #define trace_sched_stat_blocked(...) {}
+#define trace_sched_stat_blocked_enabled(...) false
 #define trace_sched_blocked_reason(...) {}
 #define trace_sched_stat_runtime(...) {}
+#define trace_sched_stat_runtime_enabled(...) false
 #define trace_sched_pi_setprio(...) {}
 #endif /* CONFIG_MINIMAL_TRACING_FOR_IORAP */
 
