@@ -1679,6 +1679,16 @@ TRACE_EVENT(sched_isolate,
 #define trace_sched_isolate(...) {}
 #define trace_sched_isolate_enabled(...) false
 #define trace_sched_load_balance_skip_tasks(...) {}
+#define trace_sched_load_to_gov {}
+#define trace_sched_update_pred_demand {}
+#define trace_sched_update_history {}
+#define trace_sched_get_task_cpu_cycles {}
+#define trace_sched_update_task_ravg {}
+#define trace_sched_update_task_ravg_mini {}
+#define trace_sched_set_preferred_cluster {}
+#define trace_sched_migration_update_sum {}
+#define trace_sched_set_boost {}
+
 #endif /* CONFIG_MINIMAL_TRACING_FOR_IORAP */
 
 #endif /* CONFIG_SMP */
