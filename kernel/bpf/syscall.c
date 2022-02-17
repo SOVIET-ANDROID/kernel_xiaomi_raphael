@@ -1363,6 +1363,7 @@ int generic_map_delete_batch(struct bpf_map *map,
 		maybe_wait_bpf_programs(map);
 		if (err)
 			break;
+		cond_resched();
 	}
 	if (copy_to_user(&uattr->batch.count, &cp, sizeof(cp)))
 		err = -EFAULT;
@@ -1420,6 +1421,7 @@ int generic_map_update_batch(struct bpf_map *map,
 
 		if (err)
 			break;
+		cond_resched();
 	}
 
 	if (copy_to_user(&uattr->batch.count, &cp, sizeof(cp)))
@@ -1517,6 +1519,7 @@ int generic_map_lookup_batch(struct bpf_map *map,
 		swap(prev_key, key);
 		retry = MAP_LOOKUP_RETRIES;
 		cp++;
+		cond_resched();
 	}
 
 	if (err == -EFAULT)
