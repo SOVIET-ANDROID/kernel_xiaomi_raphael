@@ -1545,9 +1545,9 @@ static void f2fs_umount_end(struct super_block *sb, int flags)
 			struct cp_control cpc = {
 				.reason = CP_UMOUNT,
 			};
-			down_write(&sbi->gc_lock);
+			f2fs_down_write(&sbi->gc_lock);
 			f2fs_write_checkpoint(F2FS_SB(sb), &cpc);
-			up_write(&sbi->gc_lock);
+			f2fs_up_write(&sbi->gc_lock);
 		}
 	}
 }
