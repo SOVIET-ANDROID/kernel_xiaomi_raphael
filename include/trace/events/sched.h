@@ -1688,6 +1688,7 @@ TRACE_EVENT(sched_isolate,
 #define trace_sched_set_preferred_cluster {}
 #define trace_sched_migration_update_sum {}
 #define trace_sched_set_boost {}
+#define trace_core_ctl_notif_data {}
 
 #endif /* CONFIG_MINIMAL_TRACING_FOR_IORAP */
 
