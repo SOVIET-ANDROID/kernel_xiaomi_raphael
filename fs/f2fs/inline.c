@@ -11,8 +11,8 @@
 
 #include "f2fs.h"
 #include "node.h"
-#include <trace/events/f2fs.h>
 #include <trace/events/android_fs.h>
+#include <trace/events/f2fs.h>
 
 bool f2fs_may_inline_data(struct inode *inode)
 {

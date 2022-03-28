@@ -235,7 +235,7 @@ enum {
 #define DEF_MID_DISCARD_ISSUE_TIME	500	/* 500 ms, if device busy */
 #define DEF_MAX_DISCARD_ISSUE_TIME	60000	/* 60 s, if no candidates */
 #define DEF_DISCARD_URGENT_UTIL		80	/* do more discard over 80% */
-#define DEF_CP_INTERVAL			200	/* 60 secs */
+#define DEF_CP_INTERVAL			60	/* 60 secs */
 #define DEF_IDLE_INTERVAL		5	/* 5 secs */
 #define DEF_DISABLE_INTERVAL		5	/* 5 secs */
 #define DEF_DISABLE_QUICK_INTERVAL	1	/* 1 secs */
@@ -573,14 +573,11 @@ enum {
 
 #define DEFAULT_RETRY_IO_COUNT	8	/* maximum retry read IO or flush count */
 
-/* congestion wait timeout value, default: 6ms */
-#define	DEFAULT_IO_TIMEOUT	(msecs_to_jiffies(6))
+/* congestion wait timeout value, default: 20ms */
+#define	DEFAULT_IO_TIMEOUT	(msecs_to_jiffies(20))
 
 /* maximum retry quota flush count */
 #define DEFAULT_RETRY_QUOTA_FLUSH_COUNT		8
-
-/* maximum retry sync dirty inodes */
-#define DEFAULT_RETRY_SYNC_DIR_COUNT	3000
 
 #define F2FS_LINK_MAX	0xffffffff	/* maximum link count per file */
 
@@ -1294,6 +1291,7 @@ enum {
 	SBI_QUOTA_SKIP_FLUSH,			/* skip flushing quota in current CP */
 	SBI_QUOTA_NEED_REPAIR,			/* quota file may be corrupted */
 	SBI_IS_RESIZEFS,			/* resizefs is in process */
+	SBI_IS_FREEZING,			/* freezefs is in process */
 };
 
 enum {
@@ -1313,6 +1311,7 @@ enum {
 	GC_IDLE_AT,
 	GC_URGENT_HIGH,
 	GC_URGENT_LOW,
+	GC_URGENT_MID,
 	MAX_GC_MODE,
 };
 
@@ -2133,9 +2132,17 @@ static inline void clear_ckpt_flags(struct f2fs_sb_info *sbi, unsigned int f)
 	spin_unlock_irqrestore(&sbi->cp_lock, flags);
 }
 
-static inline void init_f2fs_rwsem(struct f2fs_rwsem *sem)
+#define init_f2fs_rwsem(sem)					\
+do {								\
+	static struct lock_class_key __key;			\
+								\
+	__init_f2fs_rwsem((sem), #sem, &__key);			\
+} while (0)
+
+static inline void __init_f2fs_rwsem(struct f2fs_rwsem *sem,
+		const char *sem_name, struct lock_class_key *key)
 {
-	init_rwsem(&sem->internal_rwsem);
+	__init_rwsem(&sem->internal_rwsem, sem_name, key);
 	init_waitqueue_head(&sem->read_waiters);
 }
 
@@ -2777,6 +2784,9 @@ static inline bool is_idle(struct f2fs_sb_info *sbi, int type)
 
 	if (is_inflight_io(sbi, type))
 		return false;
+
+	if (sbi->gc_mode == GC_URGENT_MID)
+		return true;
 
 	if (sbi->gc_mode == GC_URGENT_LOW &&
 			(type == DISCARD_TIME || type == GC_TIME))
@@ -4513,8 +4523,6 @@ static inline bool f2fs_force_buffered_io(struct inode *inode,
 	int rw = iov_iter_rw(iter);
 
 	if (!fscrypt_dio_supported(iocb, iter))
-		return true;
-	if (fsverity_active(inode))
 		return true;
 	if (fsverity_active(inode))
 		return true;

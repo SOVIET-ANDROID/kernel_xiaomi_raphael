@@ -472,6 +472,13 @@ out:
 			}
 		} else if (t == 2) {
 			sbi->gc_mode = GC_URGENT_LOW;
+		} else if (t == 3) {
+			sbi->gc_mode = GC_URGENT_MID;
+			if (sbi->gc_thread) {
+				sbi->gc_thread->gc_wake = 1;
+				wake_up_interruptible_all(
+					&sbi->gc_thread->gc_wait_queue_head);
+			}
 		} else {
 			return -EINVAL;
 		}
@@ -692,11 +699,6 @@ static struct f2fs_attr f2fs_attr_##_name = {			\
 		f2fs_sbi_show, f2fs_sbi_store,			\
 		offsetof(struct struct_name, elname))
 
-#define F2FS_RO_ATTR(struct_type, struct_name, name, elname)	\
-	F2FS_ATTR_OFFSET(struct_type, name, 0444,		\
-		f2fs_sbi_show, f2fs_sbi_store,			\
-		offsetof(struct struct_name, elname))
-
 #define F2FS_GENERAL_RO_ATTR(name) \
 static struct f2fs_attr f2fs_attr_##name = __ATTR(name, 0444, name##_show, NULL)
 
@@ -708,7 +710,7 @@ static struct f2fs_attr f2fs_attr_##_name = {			\
 	.offset = offsetof(struct _struct_name, _elname),       \
 }
 
-F2FS_RO_ATTR(GC_THREAD, f2fs_gc_kthread, gc_urgent_sleep_time,
+F2FS_RW_ATTR(GC_THREAD, f2fs_gc_kthread, gc_urgent_sleep_time,
 							urgent_sleep_time);
 F2FS_RW_ATTR(GC_THREAD, f2fs_gc_kthread, gc_min_sleep_time, min_sleep_time);
 F2FS_RW_ATTR(GC_THREAD, f2fs_gc_kthread, gc_max_sleep_time, max_sleep_time);
