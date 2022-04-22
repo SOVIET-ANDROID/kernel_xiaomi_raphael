@@ -4258,6 +4258,9 @@ static int __handle_mm_fault(struct vm_area_struct *vma, unsigned long address,
 	return handle_pte_fault(&vmf);
 }
 
+static void lru_gen_enter_fault(struct vm_area_struct *vma);
+static void lru_gen_exit_fault(void);
+
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
 
 #ifndef __HAVE_ARCH_PTE_SPECIAL
@@ -4465,7 +4468,9 @@ int __handle_speculative_fault(struct mm_struct *mm, unsigned long address,
 	}
 
 	mem_cgroup_enter_user_fault();
+	lru_gen_enter_fault(vmf.vma);
 	ret = handle_pte_fault(&vmf);
+	lru_gen_exit_fault();
 	mem_cgroup_exit_user_fault();
 
 	/*
