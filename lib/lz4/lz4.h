@@ -73,6 +73,8 @@ extern "C" {
 #include <linux/export.h>
 #include <linux/string.h>
 
+#include "lz4armv8/lz4accel.h"
+
 #define LZ4_FORCE_INLINE static inline __attribute__((always_inline))
 
 /*^***************************************************************
@@ -572,6 +574,16 @@ LZ4LIB_API int
 LZ4_decompress_safe_continue(LZ4_streamDecode_t *LZ4_streamDecode,
 			     const char *src, char *dst, int srcSize,
 			     int dstCapacity);
+
+LZ4LIB_API ssize_t LZ4_arm64_decompress_safe_partial(const void *source,
+						     void *dest,
+						     size_t inputSize,
+						     size_t outputSize,
+						     bool dip);
+
+LZ4LIB_API ssize_t LZ4_arm64_decompress_safe(const void *source, void *dest,
+					     size_t inputSize,
+					     size_t outputSize, bool dip);
 
 /*! LZ4_decompress_safe_usingDict() :
  *  Works the same as
