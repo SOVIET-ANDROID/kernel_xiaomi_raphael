@@ -3203,6 +3203,7 @@ static unsigned long get_pte_pfn(pte_t pte, struct vm_area_struct *vma, unsigned
 	return pfn;
 }
 
+#if defined(CONFIG_TRANSPARENT_HUGEPAGE) || defined(CONFIG_ARCH_HAS_NONLEAF_PMD_YOUNG)
 static unsigned long get_pmd_pfn(pmd_t pmd, struct vm_area_struct *vma, unsigned long addr)
 {
 	unsigned long pfn = pmd_pfn(pmd);
@@ -3220,6 +3221,7 @@ static unsigned long get_pmd_pfn(pmd_t pmd, struct vm_area_struct *vma, unsigned
 
 	return pfn;
 }
+#endif
 
 static struct page *get_pfn_page(unsigned long pfn, struct mem_cgroup *memcg,
 				   struct pglist_data *pgdat, bool can_swap)
@@ -4165,12 +4167,16 @@ static bool isolate_page(struct lruvec *lruvec, struct page *page, struct scan_c
 	/* raced with another isolation */
 	ClearPageLRU(page);
 
-	success = lru_gen_del_page(lruvec, page, true);
-	VM_WARN_ON_ONCE_PAGE(!success, page);
+	/* see the comment on MAX_NR_TIERS */
+	if (!PageReferenced(page))
+		set_mask_bits(&page->flags, LRU_REFS_MASK | LRU_REFS_FLAGS, 0);
 
 	/* for shrink_page_list() */
 	ClearPageReclaim(page);
 	ClearPageReferenced(page);
+
+	success = lru_gen_del_page(lruvec, page, true);
+	VM_WARN_ON_ONCE_PAGE(!success, page);
 
 	return true;
 }
@@ -4371,11 +4377,12 @@ static int evict_pages(struct lruvec *lruvec, struct scan_control *sc, int swapp
 
 	reclaimed = shrink_page_list(&list, pgdat, sc, 0, NULL, false);
 
-	/*
-	 * To avoid livelock, don't add rejected pages back to the same lists
-	 * they were isolated from. See lru_gen_add_page().
-	 */
 	list_for_each_entry(page, &list, lru) {
+		/* restore LRU_REFS_FLAGS cleared by isolate_page() */
+		if (PageWorkingset(page))
+			SetPageReferenced(page);
+
+		/* don't add rejected pages to the oldest generation */
 		if (PageReclaim(page) && (PageDirty(page) || PageWriteback(page)))
 			ClearPageActive(page);
 		else
@@ -4438,7 +4445,7 @@ static unsigned long get_nr_to_scan(struct lruvec *lruvec, struct scan_control *
 
 	/* skip the aging path at the default priority */
 	if (priority == DEF_PRIORITY)
-		return nr_to_scan;
+		goto done;
 
 	/* leave the work to lru_gen_age_node() */
 	if (current_is_kswapd())
@@ -4446,7 +4453,7 @@ static unsigned long get_nr_to_scan(struct lruvec *lruvec, struct scan_control *
 
 	if (try_to_inc_max_seq(lruvec, max_seq, sc, can_swap, false))
 		return nr_to_scan;
-
+done:
 	return min_seq[!can_swap] + MIN_NR_GENS <= max_seq ? nr_to_scan : 0;
 }
 
