@@ -4,7 +4,7 @@
 #include "linux/workqueue.h"
 
 #ifndef KSU_GIT_VERSION
-#warning "KSU_GIT_VERSION not defined! It is better to make KernelSU a git submodule!"
+//#warning "KSU_GIT_VERSION not defined! It is better to make KernelSU a git submodule!"
 #define KERNEL_SU_VERSION (16)
 #else
 #define KERNEL_SU_VERSION (10000 + KSU_GIT_VERSION + 200) // major * 10000 + git version + 200 for historical reasons
