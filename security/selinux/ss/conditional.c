@@ -195,6 +195,7 @@ int cond_index_bool(void *key, void *datum, void *datap)
 {
 	struct policydb *p;
 	struct cond_bool_datum *booldatum;
+	struct flex_array *fa;
 
 	booldatum = datum;
 	p = datap;
@@ -202,7 +203,10 @@ int cond_index_bool(void *key, void *datum, void *datap)
 	if (!booldatum->value || booldatum->value > p->p_bools.nprim)
 		return -EINVAL;
 
-	p->sym_val_to_name[SYM_BOOLS][booldatum->value - 1] = key;
+	fa = p->sym_val_to_name[SYM_BOOLS];
+	if (flex_array_put_ptr(fa, booldatum->value - 1, key,
+			       GFP_KERNEL | __GFP_ZERO))
+		BUG();
 	p->bool_val_to_struct[booldatum->value - 1] = booldatum;
 
 	return 0;
