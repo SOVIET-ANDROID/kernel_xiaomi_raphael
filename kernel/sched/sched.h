@@ -2084,7 +2084,7 @@ static inline u64 sched_avg_period(void)
 	return (u64)sysctl_sched_time_avg * NSEC_PER_MSEC / 2;
 }
 
-extern unsigned int sysctl_sched_min_granularity;
+extern unsigned int sysctl_sched_base_slice;
 #ifdef CONFIG_SCHED_HRTICK
 
 /*
