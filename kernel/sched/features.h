@@ -13,6 +13,7 @@
  * sleep+wake cycles. EEVDF placement strategy #1, #2 if disabled.
  */
 #define SCHED_FEAT_PLACE_LAG 1
+#define SCHED_FEAT_PLACE_DEADLINE_INITIAL 1
 
 /*
  * Prefer to schedule the task we woke last (assuming it failed
@@ -136,3 +137,4 @@
 
 #define SCHED_FEAT_ALT_PERIOD 1
 #define SCHED_FEAT_BASE_SLICE 1
+#define SCHED_FEAT_EEVDF 1
