@@ -5,15 +5,15 @@
 # A mix between the arm64 and arm vDSO Makefiles.
 
 ifeq ($(cc-name),clang)
-  CC_ARM32 := $(CC) $(CLANG_TARGET_ARM32)
+  CC_ARM32 := $(CC) --target=arm-linux-gnueabi
 else
-  CC_ARM32 := $(CROSS_COMPILE_ARM32)$(cc-name)
+  CC_ARM32 := $(CROSS_COMPILE_COMPAT)$(cc-name)
 endif
 
 ifneq ($(LLVM),)
 LD_COMPAT ?= $(LD)
 else
-LD_COMPAT ?= $(CROSS_COMPILE_ARM32)ld
+LD_COMPAT ?= $(CROSS_COMPILE_COMPAT)ld
 endif
 
 # Same as cc-*option, but using CC_ARM32 instead of CC

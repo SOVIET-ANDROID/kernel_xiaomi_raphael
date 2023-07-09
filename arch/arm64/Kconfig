@@ -1558,10 +1558,10 @@ config COMPAT_VDSO
 	help
 	  Warning: a 32-bit toolchain is necessary to build the vDSO. You
 	  must explicitly define which toolchain should be used by setting
-	  CROSS_COMPILE_ARM32 to the prefix of the 32-bit toolchain (same format
-	  as CROSS_COMPILE). If CROSS_COMPILE_ARM32 is empty, a warning will be
+	  CROSS_COMPILE_COMPAT to the prefix of the 32-bit toolchain (same format
+	  as CROSS_COMPILE). If CROSS_COMPILE_COMPAT is empty, a warning will be
 	  printed and the kernel will be built as if COMPAT_VDSO had not been
-	  set. If CROSS_COMPILE_ARM32 is set to an invalid prefix, compilation
+	  set. If CROSS_COMPILE_COMPAT is set to an invalid prefix, compilation
 	  will be aborted.
 
 	  Provide a vDSO to 32-bit processes. It includes the symbols provided
@@ -1569,10 +1569,10 @@ config COMPAT_VDSO
 	  the compat vDSO without modification. It also provides sigreturn
 	  trampolines, replacing the sigreturn page.
 
-config CROSS_COMPILE_ARM32
+config CROSS_COMPILE_COMPAT
 	string "32-bit toolchain prefix"
 	help
-	  Same as setting CROSS_COMPILE_ARM32 in the environment, but saved for
+	  Same as setting CROSS_COMPILE_COMPAT in the environment, but saved for
 	  future builds. The environment variable overrides this config option.
 
 endmenu
