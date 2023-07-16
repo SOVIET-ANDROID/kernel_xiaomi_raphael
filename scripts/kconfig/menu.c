@@ -550,6 +550,12 @@ const char *menu_get_help(struct menu *menu)
 		return "";
 }
 
+
+int __attribute__((weak)) get_jump_key_char(void)
+{
+	return -1;
+}
+
 static void get_prompt_str(struct gstr *r, struct property *prop,
 			   struct list_head *head)
 {
@@ -591,12 +597,23 @@ static void get_prompt_str(struct gstr *r, struct property *prop,
 
 	if (i > 0) {
 		str_printf(r, _("  Location:\n"));
-		for (j = 4; --i >= 0; j += 2) {
+
+		for (j = 0; --i >= 0; j++) {
+			int jk = -1;
+			int indent = 2 * j + 4;
+
 			menu = submenu[i];
-			if (jump && menu == location)
+			if (jump && menu == location) {
 				jump->offset = strlen(r->s);
-			str_printf(r, "%*c-> %s", j, ' ',
-				   _(menu_get_prompt(menu)));
+				jk = get_jump_key_char();
+			}
+
+			if (jk >= 0) {
+				str_printf(r, "(%c)", jk);
+				indent -= 3;
+			}
+
+			str_printf(r, "%*c-> %s", indent, ' ', menu_get_prompt(menu));
 			if (menu->sym) {
 				str_printf(r, " (%s [=%s])", menu->sym->name ?
 					menu->sym->name : _("<choice>"),
