@@ -19,6 +19,7 @@ import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -33,11 +34,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.weishu.kernelsu.Natives
 import me.weishu.kernelsu.R
 import me.weishu.kernelsu.ui.component.ConfirmDialog
 import me.weishu.kernelsu.ui.component.ConfirmResult
+import me.weishu.kernelsu.ui.component.LoadingDialog
 import me.weishu.kernelsu.ui.screen.destinations.InstallScreenDestination
 import me.weishu.kernelsu.ui.util.*
 import me.weishu.kernelsu.ui.viewmodel.ModuleViewModel
@@ -93,6 +97,8 @@ fun ModuleScreen(navigator: DestinationsNavigator) {
     }) { innerPadding ->
 
         ConfirmDialog()
+
+        LoadingDialog()
 
         when {
             hasMagisk -> {
@@ -152,7 +158,12 @@ private fun ModuleList(
             return
         }
 
-        val success = uninstallModule(module.id)
+        val success = dialogHost.withLoading {
+            withContext(Dispatchers.IO) {
+                uninstallModule(module.id)
+            }
+        }
+
         if (success) {
             viewModel.fetchModuleList()
         }
@@ -201,7 +212,7 @@ private fun ModuleList(
                     }
                 } else {
                     items(viewModel.moduleList) { module ->
-                        var isChecked by remember(module) { mutableStateOf(module.enabled) }
+                        var isChecked by rememberSaveable(module) { mutableStateOf(module.enabled) }
                         val scope = rememberCoroutineScope()
                         val updateUrl by produceState(initialValue = "") {
                             viewModel.checkUpdate(module) { value = it.orEmpty() }
@@ -213,10 +224,14 @@ private fun ModuleList(
                         ModuleItem(module, isChecked, updateUrl, onUninstall = {
                             scope.launch { onModuleUninstall(module) }
                         }, onCheckChanged = {
-                            val success = toggleModule(module.id, !isChecked)
-                            if (success) {
-                                isChecked = it
-                                scope.launch {
+                            scope.launch {
+                                val success = dialogHost.withLoading {
+                                    withContext(Dispatchers.IO) {
+                                        toggleModule(module.id, !isChecked)
+                                    }
+                                }
+                                if (success) {
+                                    isChecked = it
                                     viewModel.fetchModuleList()
 
                                     val result = snackBarHost.showSnackbar(
@@ -225,10 +240,10 @@ private fun ModuleList(
                                     if (result == SnackbarResult.ActionPerformed) {
                                         reboot()
                                     }
+                                } else {
+                                    val message = if (isChecked) failedDisable else failedEnable
+                                    snackBarHost.showSnackbar(message.format(module.name))
                                 }
-                            } else scope.launch {
-                                val message = if (isChecked) failedDisable else failedEnable
-                                snackBarHost.showSnackbar(message.format(module.name))
                             }
                         }, onUpdate = {
 

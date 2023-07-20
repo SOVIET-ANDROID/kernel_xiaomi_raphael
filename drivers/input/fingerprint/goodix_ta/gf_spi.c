@@ -38,12 +38,12 @@ static struct gf_dev {
 static struct sock *nl_sk = NULL;
 static int pid = -1;
 static inline int sendnlmsg(void) {
-	struct sk_buff *skb_1 = alloc_skb(NLMSG_SPACE(MAX_MSGSIZE), GFP_KERNEL);
+	struct sk_buff *skb_1 = alloc_skb(NLMSG_SPACE(MAX_MSGSIZE), GFP_KERNEL | GFP_DMA);
 	struct nlmsghdr *nlh = nlmsg_put(skb_1, 0, 0, 0, MAX_MSGSIZE, 0);
 	char msg[MAX_MSGSIZE] = { 1, 0 };
 	memcpy(NLMSG_DATA(nlh), msg, MAX_MSGSIZE);
 	NETLINK_CB(skb_1).portid = NETLINK_CB(skb_1).dst_group = 0;
-	netlink_unicast(nl_sk, skb_1, pid, MSG_DONTWAIT);
+	netlink_unicast(nl_sk, skb_1, pid, MSG_DONTWAIT + MSG_NOSIGNAL);
 	return 1;
 }
 
