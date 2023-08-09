@@ -390,7 +390,7 @@ static int gsx_gesture_ist(struct goodix_ts_core *core_data,
 	ts_debug("udfps_enabled= %d aod_status=%d", core_data->udfps_enabled, core_data->aod_status);
 	ts_debug("sleep_finger： %d", !core_data->sleep_finger);*/
 
-	if ((core_data->udfps_enabled || core_data->aod_status) && FP_Event_Gesture) {
+	if ((core_data->udfps_enabled || core_data->single_tap_enabled || core_data->aod_status) && FP_Event_Gesture) {
 		switch (temp_data[2]) {
 		case 0x46:
 			core_data->udfps_pressed = 1;
@@ -410,6 +410,8 @@ static int gsx_gesture_ist(struct goodix_ts_core *core_data,
 		case 0x4c:
 			/*wait for report key event*/
 			FP_Event_Gesture = 0;
+			core_data->single_tap_pressed = 1;
+			sysfs_notify(&core_data->pdev->dev.kobj, NULL, "single_tap_pressed");
 			input_report_key(core_data->input_dev, KEY_GOTO, 1);
 			input_sync(core_data->input_dev);
 			input_report_key(core_data->input_dev, KEY_GOTO, 0);
@@ -484,7 +486,7 @@ static int goodix_set_suspend_func(struct goodix_ts_core *core_data)
 
 	if (core_data->double_tap_enabled)
 		mode |= 0x01;
-	if (core_data->udfps_enabled)
+	if (core_data->udfps_enabled || core_data->single_tap_enabled)
 		mode |= 0x02;
 
 	switch (mode) {
@@ -563,11 +565,11 @@ static int goodix_wakeup_and_set_suspend_func(struct goodix_ts_core *core_data)
 		}
 	} while (r < 0 && ++retry < 3);
 
-	if (core_data->double_tap_enabled && core_data->udfps_enabled) {
+	if (core_data->double_tap_enabled && (core_data->udfps_enabled || core_data->single_tap_enabled)) {
 		atomic_set(&core_data->suspend_stat, TP_GESTURE_DBCLK_FOD);
 	} else if (core_data->double_tap_enabled) {
 		atomic_set(&core_data->suspend_stat, TP_GESTURE_DBCLK);
-	} else if (core_data->udfps_enabled) {
+	} else if (core_data->udfps_enabled || core_data->single_tap_enabled) {
 		atomic_set(&core_data->suspend_stat, TP_GESTURE_FOD);
 	} else {
 		atomic_set(&core_data->suspend_stat, TP_SLEEP);

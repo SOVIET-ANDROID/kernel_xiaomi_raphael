@@ -1314,12 +1314,14 @@ static void retract_page_tables(struct address_space *mapping, pgoff_t pgoff)
 
 				mmu_notifier_invalidate_range_start(mm, addr,
 								    end);
+				vm_write_begin(vma);
 				ptl = pmd_lock(mm, pmd);
 				/* assume page table is clear */
 				_pmd = pmdp_collapse_flush(vma, addr, pmd);
 				spin_unlock(ptl);
 				mm_dec_nr_ptes(mm);
 				tlb_remove_table_sync_one();
+				vm_write_end(vma);
 				pte_free(mm, pmd_pgtable(_pmd));
 				mmu_notifier_invalidate_range_end(mm, addr,
 								  end);
