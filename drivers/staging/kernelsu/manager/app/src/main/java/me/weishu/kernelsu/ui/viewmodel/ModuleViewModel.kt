@@ -58,6 +58,13 @@ class ModuleViewModel : ViewModel() {
         }
     }
 
+    var isNeedRefresh by mutableStateOf(false)
+        private set
+
+    fun markNeedRefresh() {
+        isNeedRefresh = true
+    }
+
     fun fetchModuleList() {
         viewModelScope.launch(Dispatchers.IO) {
             isRefreshing = true
@@ -80,17 +87,19 @@ class ModuleViewModel : ViewModel() {
                     .map { obj ->
                         ModuleInfo(
                             obj.getString("id"),
-                            obj.getString("name"),
+
+                            obj.optString("name"),
                             obj.optString("author", "Unknown"),
                             obj.optString("version", "Unknown"),
                             obj.optInt("versionCode", 0),
-                            obj.getString("description"),
+                            obj.optString("description"),
                             obj.getBoolean("enabled"),
                             obj.getBoolean("update"),
                             obj.getBoolean("remove"),
-                            obj.optString("updateJson", "")
+                            obj.optString("updateJson")
                         )
                     }.toList()
+                isNeedRefresh = false
             }.onFailure { e ->
                 Log.e(TAG, "fetchModuleList: ", e)
                 isRefreshing = false

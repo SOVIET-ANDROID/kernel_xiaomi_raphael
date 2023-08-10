@@ -161,22 +161,14 @@ pub fn root_shell() -> Result<()> {
     let preserve_env = matches.opt_present("p");
     let mount_master = matches.opt_present("M");
 
+    // we've make sure that -c is the last option and it already contains the whole command, no need to construct it again
+    let args = matches
+        .opt_str("c")
+        .map(|cmd| vec!["-c".to_string(), cmd])
+        .unwrap_or_default();
+
     let mut free_idx = 0;
-    let command = matches.opt_str("c").map(|cmd| {
-        free_idx = matches.free.len();
-        let mut cmds = vec![];
-        cmds.push(cmd);
-        cmds.extend(matches.free.clone());
-        cmds
-    });
-
-    let mut args = vec![];
-    if let Some(cmd) = command {
-        args.push("-c".to_string());
-        args.push(cmd.join(" "));
-    };
-
-    if free_idx < matches.free.len() && matches.free[free_idx] == "-" {
+    if !matches.free.is_empty() && matches.free[free_idx] == "-" {
         is_login = true;
         free_idx += 1;
     }
@@ -262,7 +254,7 @@ pub fn root_shell() -> Result<()> {
 fn add_path_to_env(path: &str) -> Result<()> {
     let mut paths =
         env::var_os("PATH").map_or(Vec::new(), |val| env::split_paths(&val).collect::<Vec<_>>());
-    let new_path = PathBuf::from(path);
+    let new_path = PathBuf::from(path.trim_end_matches('/'));
     paths.push(new_path);
     let new_path_env = env::join_paths(paths)?;
     env::set_var("PATH", new_path_env);
