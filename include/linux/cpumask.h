@@ -58,6 +58,8 @@ extern unsigned int nr_cpu_ids;
  *     cpu_lp_mask      - has bit 'cpu' set iff cpu is part of little cluster
  *     cpu_perf_mask    - has bit 'cpu' set iff cpu is part of big cluster
  *     cpu_prime_mask   - has bit 'cpu' set iff cpu is part of prime cluster
+ *     cpu_hp_mask      - has bit 'cpu' set iff cpu is part of big or prime
+ *                        cluster
  *
  *  If !CONFIG_HOTPLUG_CPU, present == possible, and active == online.
  *
@@ -103,6 +105,7 @@ extern struct cpumask __cpu_isolated_mask;
 extern const struct cpumask *const cpu_lp_mask;
 extern const struct cpumask *const cpu_perf_mask;
 extern const struct cpumask *const cpu_prime_mask;
+extern const struct cpumask *const cpu_hp_mask;
 
 #if NR_CPUS > 1
 #define num_online_cpus()	cpumask_weight(cpu_online_mask)
