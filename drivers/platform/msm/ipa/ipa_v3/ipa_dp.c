@@ -1888,6 +1888,9 @@ static struct ipa3_rx_pkt_wrapper *ipa3_alloc_rx_pkt_page(
 	rx_pkt->len = PAGE_SIZE << IPA_WAN_PAGE_ORDER;
 	rx_pkt->page_data.page = __dev_alloc_pages(flag,
 		IPA_WAN_PAGE_ORDER);
+	if (is_tmp_alloc)
+		flag |= __GFP_RETRY_MAYFAIL | __GFP_NOWARN;
+
 	if (unlikely(!rx_pkt->page_data.page))
 		goto fail_page_alloc;
 

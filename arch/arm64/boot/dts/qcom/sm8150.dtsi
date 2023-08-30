@@ -2449,7 +2449,7 @@
 
 		/* PM QoS */
 		qcom,pm-qos-cpu-groups = <0x01 0x02 0x04 0x08 0x10 0x20 0x40 0x80>;
-		qcom,pm-qos-cpu-group-latency-us = <44 44 44 44 44 44 44 44>;
+		qcom,pm-qos-cpu-group-latency-us = <100 100 100 100 100 100 100 100>;
 		qcom,pm-qos-default-cpu = <0>;
 
 		pinctrl-names = "dev-reset-assert", "dev-reset-deassert";
