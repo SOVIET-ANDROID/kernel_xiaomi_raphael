@@ -611,7 +611,7 @@ alternative_endif
 	.endif
 	.endm
 
-.macro __mitigate_spectre_bhb_loop      tmp
+	.macro __mitigate_spectre_bhb_loop      tmp
 #ifdef CONFIG_MITIGATE_SPECTRE_BRANCH_HISTORY
 alternative_cb  spectre_bhb_patch_loop_iter
 	mov	\tmp, #32		// Patched to correct the immediate
