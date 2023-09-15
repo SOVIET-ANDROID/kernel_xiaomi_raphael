@@ -117,6 +117,15 @@ static inline void unregister_handler_proc(unsigned int irq,
 					   struct irqaction *action) { }
 #endif
 
+#ifdef CONFIG_IRQ_SBALANCE
+extern void sbalance_desc_add(struct irq_desc *desc);
+extern void sbalance_desc_del(struct irq_desc *desc);
+#else
+static inline void sbalance_desc_add(struct irq_desc *desc) { }
+static inline void sbalance_desc_del(struct irq_desc *desc) { }
+#endif
+
+extern bool __irq_can_set_affinity(struct irq_desc *desc);
 extern bool irq_can_set_affinity_usr(unsigned int irq);
 
 extern void irq_set_thread_affinity(struct irq_desc *desc);
@@ -126,7 +135,6 @@ extern int irq_do_set_affinity(struct irq_data *data,
 
 #ifdef CONFIG_SMP
 extern int irq_setup_affinity(struct irq_desc *desc);
-extern void setup_perf_irq_locked(struct irq_desc *desc, unsigned int perf_flag);
 #else
 static inline int irq_setup_affinity(struct irq_desc *desc) { return 0; }
 #endif

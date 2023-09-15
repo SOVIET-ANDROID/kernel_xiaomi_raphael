@@ -503,6 +503,7 @@ struct msm_mode_info {
  *				 used instead of panel TE in cmd mode panels
  * @roi_caps:           Region of interest capability info
  * @qsync_min_fps	Minimum fps supported by Qsync feature
+ * @has_qsync_min_fps_list True if dsi-supported-qsync-min-fps-list exits
  * @te_source		vsync source pin information
  */
 struct msm_display_info {
@@ -527,6 +528,8 @@ struct msm_display_info {
 	struct msm_roi_caps roi_caps;
 
 	uint32_t qsync_min_fps;
+	bool has_qsync_min_fps_list;	
+
 	uint32_t te_source;
 };
 
@@ -654,6 +657,7 @@ struct msm_drm_private {
 
 	struct task_struct *pp_event_thread;
 	struct kthread_worker pp_event_worker;
+	struct kthread_work thread_priority_work;
 
 	unsigned int num_encoders;
 	struct drm_encoder *encoders[MAX_ENCODERS];

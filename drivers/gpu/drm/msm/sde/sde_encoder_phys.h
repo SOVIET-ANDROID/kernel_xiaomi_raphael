@@ -90,7 +90,7 @@ struct sde_encoder_virt_ops {
 	void (*handle_frame_done)(struct drm_encoder *,
 			struct sde_encoder_phys *phys, u32 event);
 	void (*get_qsync_fps)(struct drm_encoder *,
-			u32 *qsync_fps);
+			u32 *qsync_fps, u32 vrr_fps);
 };
 
 /**

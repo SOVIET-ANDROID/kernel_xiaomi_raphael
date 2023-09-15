@@ -398,6 +398,8 @@ static int parse_power_params(struct device_node *node,
 fail:
 	pr_err("Failed to read key: %s node: %s\n", key, node->name);
 
+	pwr->local_timer_stop = of_property_read_bool(node, "local-timer-stop");
+
 	return ret;
 }
 

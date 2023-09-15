@@ -424,6 +424,7 @@ __hw_perf_event_init(struct perf_event *event)
 			return -EINVAL;
 	}
 
+	cpumask_copy(&event->readable_on_cpus, &armpmu->supported_cpus);
 	return 0;
 }
 

@@ -464,9 +464,6 @@ kmem_cache_create(const char *name, size_t size, size_t align,
 	 */
 	flags &= CACHE_CREATE_MASK;
 
-	/* Embrace davem */
-	flags |= SLAB_HWCACHE_ALIGN;
-
 	s = __kmem_cache_alias(name, size, align, flags, ctor);
 	if (s)
 		goto out_unlock;

@@ -1892,19 +1892,6 @@ static int __set_cpus_allowed_ptr(struct task_struct *p,
 	int ret = 0;
 	cpumask_t allowed_mask;
 
-	/* Don't allow perf-critical threads to have non-perf affinities */
-	if ((p->pc_flags & PC_PRIME_AFFINE) && new_mask != cpu_prime_mask)
-		return -EINVAL;
-
-	if ((p->pc_flags & PC_PERF_AFFINE) && new_mask != cpu_perf_mask)
-		return -EINVAL;
-
-	if ((p->pc_flags & PC_HP_AFFINE) && new_mask != cpu_hp_mask)
-		return -EINVAL;
-
-	if ((p->pc_flags & PC_LITTLE_AFFINE) && new_mask != cpu_lp_mask)
-		return -EINVAL;
-
 	rq = task_rq_lock(p, &rf);
 	update_rq_clock(rq);
 
@@ -5181,8 +5168,7 @@ static void __setscheduler_params(struct task_struct *p,
 	if (policy == SETPARAM_POLICY)
 		policy = p->policy;
 
-	/* Replace SCHED_FIFO with SCHED_RR to reduce latency */
-	p->policy = policy == SCHED_FIFO ? SCHED_RR : policy;
+	p->policy = policy;
 
 	if (dl_policy(policy))
 		__setparam_dl(p, attr);

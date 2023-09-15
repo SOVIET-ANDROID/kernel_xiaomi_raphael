@@ -14,7 +14,6 @@
 #define _SWR_WCD_CTRL_H
 #include <linux/module.h>
 #include <soc/swr-wcd.h>
-#include <linux/pm_qos.h>
 #include <soc/qcom/pm.h>
 
 #define SWR_ROW_48		0
@@ -167,7 +166,6 @@ struct swr_mstr_ctrl {
 	u32 ipc_wakeup;
 	bool dev_up;
 	bool ipc_wakeup_triggered;
-	struct pm_qos_request pm_qos_req;
 	enum swrm_pm_state pm_state;
 	wait_queue_head_t pm_wq;
 	int wlock_holders;
