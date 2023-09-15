@@ -4820,11 +4820,9 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool is_error)
 	}
 
 	/*
-	 * Trigger a panel reset if this is the first kickoff and the refresh
-	 * rate is not 60 Hz
+	 * Trigger a panel reset if this is the first kickoff
 	 */
-	if (cmpxchg(&first_run, true, false) &&
-		sde_enc->crtc->mode.vrefresh != 60) {
+	if (cmpxchg(&first_run, true, false)) {
 		struct sde_connector *conn = container_of(phys->connector, struct sde_connector, base);
 		struct drm_event event = {
 			.type = DRM_EVENT_PANEL_DEAD,
