@@ -60,7 +60,7 @@ static void csr_set_cfg_valid_channel_list(struct mac_context *mac,
 
 static void csr_save_tx_power_to_cfg(struct mac_context *mac,
 				     tDblLinkList *pList,
-				     uint32_t cfgId);
+				     enum band_info band);
 
 static void csr_set_cfg_country_code(struct mac_context *mac,
 				     uint8_t *countryCode);

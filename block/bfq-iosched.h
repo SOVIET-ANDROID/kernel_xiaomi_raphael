@@ -497,7 +497,7 @@ struct bfq_data {
 	u64 delta_from_first;
 	/*
 	 * Current estimate of the device peak rate, measured in
-	 * [(sectors/usec) / 2^BFQ_RATE_SHIFT]. The left-shift by
+	 * [BFQ_RATE_SHIFT * sectors/usec]. The left-shift by
 	 * BFQ_RATE_SHIFT is performed to increase precision in
 	 * fixed-point calculations.
 	 */

@@ -47,7 +47,7 @@ KSYM(__kstrtab_\name):
 	.previous
 #ifdef CONFIG_MODVERSIONS
 	.section ___kcrctab\sec+\name,"a"
-	.balign KCRC_ALIGN
+	.balign 8
 KSYM(__kcrctab_\name):
 #if defined(CONFIG_MODULE_REL_CRCS)
 	.long KSYM(__crc_\name) - .
