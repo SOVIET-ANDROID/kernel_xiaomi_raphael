@@ -27,7 +27,6 @@ enum { sysctl_hung_task_timeout_secs = 0 };
 extern unsigned int sysctl_sched_min_granularity;
 extern unsigned int sysctl_sched_sync_hint_enable;
 extern unsigned int sysctl_sched_cstate_aware;
-extern unsigned int sysctl_sched_child_runs_first;
 extern unsigned int sysctl_sched_energy_aware;
 extern unsigned int sysctl_sched_capacity_margin_up[MAX_MARGIN_LEVELS];
 extern unsigned int sysctl_sched_capacity_margin_down[MAX_MARGIN_LEVELS];
