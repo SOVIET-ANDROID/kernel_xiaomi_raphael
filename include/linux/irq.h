@@ -550,6 +550,12 @@ extern int irq_affinity_online_cpu(unsigned int cpu);
 # define irq_affinity_online_cpu	NULL
 #endif
 
+#if defined(CONFIG_IRQ_SBALANCE)
+extern void balance_irqs(void);
+#else
+static inline void balance_irqs(void) {}
+#endif
+
 #if defined(CONFIG_SMP) && defined(CONFIG_GENERIC_PENDING_IRQ)
 void irq_move_irq(struct irq_data *data);
 void irq_move_masked_irq(struct irq_data *data);

@@ -11,13 +11,23 @@ clear
 # Resources
 export CLANG_PATH=~/tc/neutron-clang/bin
 export PATH=${CLANG_PATH}:${PATH}
-#export CROSS_COMPILE=${CLANG_PATH}/aarch64-linux-gnu-
-#export CROSS_COMPILE_ARM32=${CLANG_PATH}/arm-linux-gnueabi-
 export THINLTO_CACHE=~/ltocache/
 DEFCONFIG="raphael_defconfig"
 
 # Kernel Details
-VER="R4.2-STANDALONE"
+REV="R5.1"
+EDITION="STANDALONE"
+VER="$REV"-"$EDITION"
+
+# Vars
+BASE_AK_VER="SOVIET-STAR-K20P-"
+DATE=`date +"%Y%m%d-%H%M"`
+AK_VER="$BASE_AK_VER$VER"
+ZIP_NAME="$AK_VER"-"$DATE"
+export ARCH=arm64
+export SUBARCH=arm64
+export KBUILD_BUILD_USER=NATO66613
+export KBUILD_BUILD_HOST=KREMLIN
 
 # Paths
 KERNEL_DIR=`pwd`
@@ -48,29 +58,13 @@ function make_zip {
 		cd $KERNEL_DIR
 }
 
-
 DATE_START=$(date +"%s")
-
 
 echo -e "${green}"
 echo "-----------------"
 echo "Making Kernel:"
 echo "-----------------"
 echo -e "${restore}"
-
-
-# Vars
-BASE_AK_VER="SOVIET-STAR-K20P-"
-DATE=`date +"%Y%m%d-%H%M"`
-AK_VER="$BASE_AK_VER$VER"
-ZIP_NAME="$AK_VER"-"$DATE"
-#export LOCALVERSION=~`echo $AK_VER`
-#export LOCALVERSION=~`echo $AK_VER`
-export ARCH=arm64
-export SUBARCH=arm64
-export KBUILD_BUILD_USER=NATO66613
-export KBUILD_BUILD_HOST=KREMLIN
-
 echo
 
 while read -p "Do you want to clean stuffs (y/n)? " cchoice
@@ -113,7 +107,6 @@ case "$dchoice" in
 		;;
 esac
 done
-
 
 echo -e "${green}"
 echo "-------------------"

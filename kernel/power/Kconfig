@@ -340,3 +340,7 @@ config PM_GENERIC_DOMAINS_OF
 
 config CPU_PM
 	bool
+
+config PM_QOS_STUB
+	bool "Stub out pm qos functions"
+	default n

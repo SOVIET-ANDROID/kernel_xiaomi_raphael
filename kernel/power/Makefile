@@ -4,7 +4,11 @@ ccflags-$(CONFIG_PM_DEBUG)	:= -DDEBUG
 
 KASAN_SANITIZE_snapshot.o	:= n
 
+ifeq ($(CONFIG_PM_QOS_STUB), y)
+obj-y				+= qos_stub.o
+else
 obj-y				+= qos.o
+endif
 obj-$(CONFIG_PM)		+= main.o
 obj-$(CONFIG_VT_CONSOLE_SLEEP)	+= console.o
 obj-$(CONFIG_FREEZER)		+= process.o

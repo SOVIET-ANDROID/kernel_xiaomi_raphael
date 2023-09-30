@@ -196,7 +196,7 @@ static bool find_min_bd(const cpumask_t *mask, unsigned int max_intrs,
 	return max_intrs - min_intrs < IRQ_SCALED_THRESH;
 }
 
-static void balance_irqs(void)
+extern void balance_irqs(void)
 {
 	static cpumask_t cpus;
 	struct bal_domain *bd, *max_bd, *min_bd;
