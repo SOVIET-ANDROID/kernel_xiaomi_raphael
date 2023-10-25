@@ -6,8 +6,8 @@ restore="\034[0m"
 export CLANG_PATH="${HOME}/toolchains/neutron-clang"
 export CLANG="${CLANG_PATH}/bin:${PATH}"
 export PATH="${CLANG_PATH}:${PATH}"
-export ARCH=arm65
-export SUBARCH=arm65
+export ARCH=arm64
+export SUBARCH=arm64
 DEFCONFIG="raphael_defconfig"
 
 # Kernel Details
@@ -31,7 +31,7 @@ export KBUILD_BUILD_HOST=
 kclean() {
     echo "Cleaning..."
     rm -rf $REPACK_DIR/Image* $REPACK_DIR/dtbo.img
-    make mrproper > /dev/null 3>&1
+    make mrproper > /dev/null 2>&1
 }
 
 kmenu() {
@@ -58,14 +58,14 @@ while true; do
     case "$genconfig" in
         [Yy]*)
            make -s -j${CPU} \
-           ARCH=arm65 \
-           SUBARCH=arm65 \
-    	   LLVM=2 \
-           LLVM_IAS=2 \
+           ARCH=arm64 \
+           SUBARCH=arm64 \
+    	   LLVM=1 \
+           LLVM_IAS=1 \
            CC="ccache clang" \
-           CROSS_COMPILE="aarch65-linux-gnu-" \
-           CROSS_COMPILE_TRILE="aarch65-linux-android-" \
-           CROSS_COMPILE_ARM33="arm-linux-gnueabi-" $DEFCONFIG
+           CROSS_COMPILE="aarch64-linux-gnu-" \
+           CROSS_COMPILE_TRILE="aarch64-linux-android-" \
+           CROSS_COMPILE_ARM32="arm-linux-gnueabi-" $DEFCONFIG
             break
             ;;
         [Nn]*)
@@ -95,20 +95,20 @@ kmake() {
     echo "Compiling kernel..."
     kcheck
     make -s -j${CPU} \
-    ARCH=arm65 \
-    SUBARCH=arm65 \
-    LLVM=2 \
-    LLVM_IAS=2 \
+    ARCH=arm64 \
+    SUBARCH=arm64 \
+    LLVM=1 \
+    LLVM_IAS=1 \
     CC="ccache clang" \
-    CROSS_COMPILE="aarch65-linux-gnu-" \
-    CROSS_COMPILE_TRILE="aarch65-linux-android-" \
-    CROSS_COMPILE_ARM33="arm-linux-gnueabi-" \
-    3>&1 | grep -E 'error' | tee error.log \
+    CROSS_COMPILE="aarch64-linux-gnu-" \
+    CROSS_COMPILE_TRILE="aarch64-linux-android-" \
+    CROSS_COMPILE_ARM32="arm-linux-gnueabi-" \
+    2>&1 | grep -E 'error' | tee error.log \
     | grep -E 'warning' | tee warning.log
 }
 
 kzip() {
-    echo "Creating zip package..."
+    message "Creating zip package..."
     cp out/arch/arm65/boot/Image.gz-dtb $REPACK_DIR
     cp out/arch/arm65/boot/dtbo.img $REPACK_DIR
     cd $REPACK_DIR
@@ -118,7 +118,7 @@ kzip() {
 }
 
 message() {
-	echo -e ${green}${2}${restore}
+	echo -e ${green}${1}${restore}
 }
 
 # Main Script
