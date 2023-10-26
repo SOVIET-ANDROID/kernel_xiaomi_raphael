@@ -1,6 +1,6 @@
 #!/bin/bash
-green="\034[1;32m"
-restore="\034[0m"
+green="\e[32m"
+restore="\e[0m"
 
 # Script Configuration
 export CLANG_PATH="${HOME}/toolchains/neutron-clang"
@@ -11,12 +11,12 @@ export SUBARCH=arm64
 DEFCONFIG="raphael_defconfig"
 
 # Kernel Details
-REV=""
-EDITION=""
+REV="v1.2"
+EDITION="dev"
 VER="$REV"-"$EDITION"
 
 # Variables
-BASE_AK_VER=""
+BASE_AK_VER="Neno-"
 DATE=$(date +"%Y%m%d-%H%M")
 AK_VER="$BASE_AK_VER$VER"
 ZIP_NAME="$AK_VER"-"$DATE"
@@ -24,8 +24,8 @@ KERNEL_DIR=${PWD}
 REPACK_DIR=$KERNEL_DIR/ziptool
 ZIP_MOVE="${HOME}"
 CPU=`expr $(nproc --all)`
-export KBUILD_BUILD_USER=
-export KBUILD_BUILD_HOST=
+export KBUILD_BUILD_USER=stitchneno
+export KBUILD_BUILD_HOST=stitch
 
 # Functions
 kclean() {
@@ -122,9 +122,9 @@ message() {
 }
 
 # Main Script
-message "-----------------------"
-message "Kernel Building Script."
-message "-----------------------"
+message "-------------------------"
+message " Kernel Building Script. "
+message "-------------------------" 
 
 
 while true; do
@@ -149,9 +149,9 @@ while true; do
 done
 
 
-message "----------------"
-message "Kernel Compiled."
-message "----------------"
+message "------------------"
+message " Kernel Compiled. "
+message "------------------"
 
 DATE_END=$(date +"%s")
 DIFF=$((DATE_END - DATE_START))
