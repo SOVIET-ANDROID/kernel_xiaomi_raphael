@@ -35,6 +35,6 @@ case $option in
         print_msg "Update complete."
         ;;
     *)
-        print_msg "Invalid option. Please choose 'import (i)' or 'update (u)."
+        echo "Invalid option. Please choose 'import (i)' or 'update (u)."
         ;;
 esac
