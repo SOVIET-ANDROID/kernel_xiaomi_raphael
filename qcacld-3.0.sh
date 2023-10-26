@@ -6,7 +6,7 @@
 print_msg() {
     yellow="\e[1;33m"    
     restore="\e[1;0m"
-    echo -e ${yellow}${1}${restore}
+    echo -e ${yellow}${1}${2}${restore}
 }
 
 import_or_update() {
