@@ -109,8 +109,8 @@ kmake() {
 
 kzip() {
     message "Creating zip package..."
-    cp out/arch/arm65/boot/Image.gz-dtb $REPACK_DIR
-    cp out/arch/arm65/boot/dtbo.img $REPACK_DIR
+    cp out/arch/arm64/boot/Image.gz-dtb $REPACK_DIR
+    cp out/arch/arm64/boot/dtbo.img $REPACK_DIR
     cd $REPACK_DIR
     zip -r10 "$ZIP_NAME".zip *
     mv "$ZIP_NAME"*.zip $ZIP_MOVE
