@@ -3,6 +3,12 @@
 # Import or update qcacld-3.0, qca-wifi-host-cmn, fw-api, and audio-kernel.
 #
 
+print_msg() {
+    yellow="\e[1;33m"    
+    restore="\e[1;0m"
+    echo -e ${yellow}${1}${restore}
+}
+
 import_or_update() {
     local prefix=$1
     local remote_url=$2
@@ -19,16 +25,16 @@ case $option in
         import_or_update "drivers/staging/qca-wifi-host-cmn" "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/wlan/qca-wifi-host-cmn" $branch
         import_or_update "drivers/staging/fw-api" "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/wlan/fw-api" $branch
         import_or_update "techpack/audio" "https://git.codelinaro.org/clo/la/platform/vendor/opensource/audio-kernel/" $branch
-        echo "Import complete."
+        print_msg "Import complete."
         ;;
     update | u)
         import_or_update "drivers/staging/qcacld-3.0" "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/wlan/qcacld-3.0" $branch
         import_or_update "drivers/staging/qca-wifi-host-cmn" "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/wlan/qca-wifi-host-cmn" $branch
         import_or_update "drivers/staging/fw-api" "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/wlan/fw-api" $branch
         import_or_update "techpack/audio" "https://git.codelinaro.org/clo/la/platform/vendor/opensource/audio-kernel/" $branch
-        echo "Update complete."
+        print_msg "Update complete."
         ;;
     *)
-        echo "Invalid option. Please choose 'import (i)' or 'update (u)."
+        print_msg "Invalid option. Please choose 'import (i)' or 'update (u)."
         ;;
 esac
