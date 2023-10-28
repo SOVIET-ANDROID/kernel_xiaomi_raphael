@@ -128,3 +128,9 @@ kernel/configs/android-*.cfg
 
 # Object directory
 out/
+
+# dont add files
+warning.log
+error.log
+ziptool/dtbo.img
+ziptool/Image.gz-dtb
