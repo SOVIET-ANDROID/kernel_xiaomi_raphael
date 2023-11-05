@@ -619,8 +619,21 @@ config CC_STACKPROTECTOR_STRONG
 	  about 20% of all kernel functions, which increases the kernel code
 	  size by about 2%.
 
+config LTO_CLANG_THIN_CACHEDIR
+	string "Clang ThinLTO cache directly"
+	depends on LTO_CLANG_THIN
+	help 	
+		This option allows users to choose a directory that stores 
+		Clang's ThinLTO cache.
+		Leave empty for default.
+
 endchoice
 
+config ARCH_SUPPORTS_CFI_CLANG
+	def_bool y
+	help 
+		Select this for CFI support
+		
 config THIN_ARCHIVES
 	def_bool y
 	help

@@ -2402,7 +2402,7 @@ static __latent_entropy void rcu_core(void)
 	trace_rcu_utilization(TPS("End RCU core"));
 }
 
-static void rcu_core_si(struct softirq_action *h)
+static void rcu_core_si(void)
 {
 	rcu_core();
 }
@@ -3295,7 +3295,7 @@ static int __init rcu_spawn_gp_kthread(void)
 	unsigned long flags;
 	int kthread_prio_in = kthread_prio;
 	struct rcu_node *rnp;
-	struct sched_param sp;
+	//struct sched_param sp;
 	struct task_struct *t;
 
 	/* Force priority into range. */

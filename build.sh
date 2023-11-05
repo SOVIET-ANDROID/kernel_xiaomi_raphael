@@ -3,55 +3,60 @@ rm .version
 # Bash Color
 green='\033[01;32m'
 red='\033[01;31m'
-blink_red='\033[05;31m'
 restore='\033[0m'
 
-clear
+print_ui() {
+	echo -e ${green}${1}${restore}
+}
+
+print() {
+	echo -e ${red}${1}${restore}
+}
 
 # Resources
-export CLANG_PATH=~/tc/aosp/clang-r498229b/bin
+export CLANG_PATH=$HOME/toolchains/neutron-clang/bin
 export PATH=${CLANG_PATH}:${PATH}
 export THINLTO_CACHE=~/ltocache/
 DEFCONFIG="raphael_defconfig"
 
 # Kernel Details
-REV="R5.2"
-EDITION="STANDALONE"
+REV="V1.0"
+EDITION="legacy"
 VER="$REV"-"$EDITION"
 
 # Vars
-BASE_AK_VER="SOVIET-STAR-K20P-"
+BASE_AK_VER="NENO-KERNEL-"
 DATE=`date +"%Y%m%d-%H%M"`
 AK_VER="$BASE_AK_VER$VER"
 ZIP_NAME="$AK_VER"-"$DATE"
 export ARCH=arm64
 export SUBARCH=arm64
-export KBUILD_BUILD_USER=NATO66613
-export KBUILD_BUILD_HOST=KREMLIN
+export KBUILD_BUILD_USER=INHPKUL007
+export KBUILD_BUILD_HOST=STITCH
 
 # Paths
-KERNEL_DIR=`pwd`
-REPACK_DIR=~/AnyKernel3
-ZIP_MOVE=~/AK-releases
+KERNEL_DIR=$PWD
+REPACK_DIR=$HOME/ziptool
+ZIP_MOVE=$HOME
 
 # Functions
 function clean_all {
 		rm -rf $REPACK_DIR/Image* $REPACK_DIR/dtbo.img
 		cd $KERNEL_DIR
-		echo
-		make clean && make mrproper
+		make mrproper
 }
 
 function make_kernel {
-		echo
 		make LLVM=1 LLVM_IAS=1 CC="ccache clang" $DEFCONFIG
-		make LLVM=1 LLVM_IAS=1 CC="ccache clang" -j$(grep -c ^processor /proc/cpuinfo)
+		make menuconfig
+		make LLVM=1 LLVM_IAS=1 CC="ccache clang" -j$(grep -c ^processor /proc/cpuinfo) \
+		2> build.log | grep -E "warning|error:" 
 
 }
 
 function make_zip {
-                cp out/arch/arm64/boot/Image.gz-dtb $REPACK_DIR
-                cp out/arch/arm64/boot/dtbo.img $REPACK_DIR
+        cp out/arch/arm64/boot/Image.gz-dtb $REPACK_DIR
+        cp out/arch/arm64/boot/dtbo.img $REPACK_DIR
 		cd $REPACK_DIR
 		zip -r9 `echo $ZIP_NAME`.zip *
 		mv  `echo $ZIP_NAME`*.zip $ZIP_MOVE
@@ -60,61 +65,50 @@ function make_zip {
 
 DATE_START=$(date +"%s")
 
-echo -e "${green}"
-echo "-----------------"
-echo "Making Kernel:"
-echo "-----------------"
-echo -e "${restore}"
-echo
+
+print_ui "-----------------"
+print_ui "  Making Kernel  "
+print_ui "-----------------"
 
 while read -p "Do you want to clean stuffs (y/n)? " cchoice
 do
 case "$cchoice" in
 	y|Y )
 		clean_all
-		echo
-		echo "All Cleaned now."
+		print "All Cleaned now."
 		break
 		;;
 	n|N )
 		break
 		;;
 	* )
-		echo
-		echo "Invalid try again!"
-		echo
+		print "Invalid try again!"
 		;;
 esac
 done
-
-echo
 
 while read -p "Do you want to build?" dchoice
 do
 case "$dchoice" in
 	y|Y )
 		make_kernel
-                make_zip
+        make_zip
 		break
 		;;
 	n|N )
 		break
 		;;
 	* )
-		echo
-		echo "Invalid try again!"
-		echo
+		print "Invalid try again!"
 		;;
 esac
 done
 
-echo -e "${green}"
-echo "-------------------"
-echo "Build Completed in:"
-echo "-------------------"
-echo -e "${restore}"
+print_ui "-------------------"
+print_ui "  Build Completed  "
+print_ui "-------------------"
+
 
 DATE_END=$(date +"%s")
 DIFF=$(($DATE_END - $DATE_START))
-echo "Time: $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) seconds."
-echo
+print "Time: $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) seconds."

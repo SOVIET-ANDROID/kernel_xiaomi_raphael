@@ -2,7 +2,7 @@
 VERSION = 4
 PATCHLEVEL = 14
 SUBLEVEL = 328
-EXTRAVERSION =
+EXTRAVERSION = -secured
 NAME = Petit Gorille
 
 # *DOCUMENTATION*
@@ -371,7 +371,7 @@ HOST_LFS_LDFLAGS := $(shell getconf LFS_LDFLAGS 2>/dev/null)
 HOST_LFS_LIBS := $(shell getconf LFS_LIBS 2>/dev/null)
 
 ifneq ($(LLVM),)
-HOSTCC	= clang
+HOSTCC	= clang 
 HOSTCXX	= clang++
 else
 HOSTCC	= gcc
@@ -724,6 +724,14 @@ export CFLAGS_GCOV
 # Make toolchain changes before including arch/$(SRCARCH)/Makefile to ensure
 # ar/cc/ld-* macros return correct values.
 ifdef CONFIG_LTO_CLANG
+ifdef CONFIG_LTO_CLANG_THIN
+CC_FLAGS_LTO  := -flto=thin -fsplit-lto-unit
+export thinlto-dir = $(if 
+$(CONFGI_LTO_CLANG_THIN_CACHEDIR), $(CONFIG_LTO_CLANG_THIN_CACHEDIR)/)
+KBUILD_LDFLAG += 
+else 
+CC_FLAG_LTO  := -flto
+endif
 ifneq ($(ld-name),lld)
 # use GNU gold with LLVMgold for LTO linking, and LD for vmlinux_link
 LDFINAL_vmlinux := $(LD)
@@ -766,7 +774,7 @@ KBUILD_CFLAGS	+= -mcpu=cortex-a76.cortex-a55 -mtune=cortex-a76.cortex-a55
 endif
 ifeq ($(cc-name),clang)
 #Enable MLGO for register allocation.
-KBUILD_CFLAGS   += -mllvm -regalloc-enable-advisor=release
+#KBUILD_CFLAGS   += -mllvm -regalloc-enable-advisor=release
 #Enable hot cold split optimization
 KBUILD_CFLAGS   += -mllvm -hot-cold-split=true
 KBUILD_CFLAGS	+= -march=armv8.2-a+dotprod -mcpu=cortex-a76+crypto+crc
@@ -1862,7 +1870,11 @@ $(clean-dirs):
 	$(Q)$(MAKE) $(clean)=$(patsubst _clean_%,%,$@)
 
 clean:	rm-dirs := $(MODVERDIR)
+clean-dirs := $(KBUILD_EXTMOD)
 clean: rm-files := $(KBUILD_EXTMOD)/Module.symvers
+$(KBUILD_EXTMOD)/modules.nsdeps \ 
+	$(KBUILD_EXTMOD)/compile_command.json
+$(thinlto-dir)$(KBUILD_EXTMOD)/.thinlto-cache
 
 PHONY += help
 help:

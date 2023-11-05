@@ -719,6 +719,15 @@ static struct ctl_table ipv4_table[] = {
 		.extra1		= &one
 	},
 	{
+		.procname   = "tcp_simult_connect",
+		.data		= &sysctl_tcp_simult_connect,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler = proc_dointvec_minmax,
+		.extra1 	= &zero,
+		.extra2		= &one,
+	},
+	{
 		.procname	= "tcp_delack_seg",
 		.data		= &sysctl_tcp_delack_seg,
 		.maxlen		= sizeof(sysctl_tcp_delack_seg),

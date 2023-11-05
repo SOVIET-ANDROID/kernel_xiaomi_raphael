@@ -165,13 +165,13 @@ config IRQ_SBALANCE
 if IRQ_SBALANCE
 config IRQ_SBALANCE_POLL_MSEC
 	int "Polling interval in milliseconds"
-	default 3000
+	default 5000
 	help
 	  Perform IRQ balancing every X milliseconds.
 
 config IRQ_SBALANCE_THRESH
 	int "Balance threshold in number of interrupts"
-	default 1024
+	default 256
 	help
 	  There needs to be a difference of at least this many new interrupts
 	  between the heaviest and least-heavy CPUs during the last polling

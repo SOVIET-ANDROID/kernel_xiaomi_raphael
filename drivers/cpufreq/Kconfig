@@ -47,7 +47,7 @@ config CPU_FREQ_TIMES
 choice
 	prompt "Default CPUFreq governor"
 	default CPU_FREQ_DEFAULT_GOV_USERSPACE if ARM_SA1100_CPUFREQ || ARM_SA1110_CPUFREQ
-	default CPU_FREQ_DEFAULT_GOV_PERFORMANCE
+	default CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
 	help
 	  This option sets which CPUFreq governor shall be loaded at
 	  startup. If in doubt, select 'performance'.
@@ -234,28 +234,28 @@ if CPU_FREQ_GOV_SCHEDUTIL
 
 config SCHEDUTIL_UP_RATE_LIMIT_PRIME
 	int "Default up rate-limit for schedutil on prime cluster"
-	default 20000
+	default 0
 	help
 	  This sets schedutil's default frequency up rate-limit for big cluster in
 	  microseconds.
 
 config SCHEDUTIL_DOWN_RATE_LIMIT_PRIME
 	int "Default down rate-limit for schedutil on prime cluster"
-	default 1000
+	default 0
 	help
 	  This sets schedutil's default frequency down rate-limit in
 	  microseconds.
 
 config SCHEDUTIL_UP_RATE_LIMIT_BIG
 	int "Default up rate-limit for schedutil on big cluster"
-	default 4000
+	default 0
 	help
 	  This sets schedutil's default frequency up rate-limit for big cluster in
 	  microseconds.
 
 config SCHEDUTIL_DOWN_RATE_LIMIT_BIG
 	int "Default down rate-limit for schedutil on big cluster"
-	default 1000
+	default 0
 	help
 	  This sets schedutil's default frequency down rate-limit in
 	  microseconds.
@@ -269,7 +269,7 @@ config SCHEDUTIL_UP_RATE_LIMIT_LITTLE
 
 config SCHEDUTIL_DOWN_RATE_LIMIT_LITTLE
 	int "Default down rate-limit for schedutil on little cluster"
-	default 6000
+	default 0
 	help
 	  This sets schedutil's default frequency down rate-limit for little cluster in
 	  microseconds.

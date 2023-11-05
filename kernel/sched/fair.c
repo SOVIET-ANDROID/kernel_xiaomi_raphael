@@ -6601,6 +6601,7 @@ static inline int select_energy_cpu_idx(struct energy_env *eenv)
  * whatever is irrelevant, spread criteria is apparent partner count exceeds
  * socket size.
  */
+/*
 static int wake_wide(struct task_struct *p)
 {
 	unsigned int master = current->wakee_flips;
@@ -6613,7 +6614,7 @@ static int wake_wide(struct task_struct *p)
 		return 0;
 	return 1;
 }
-
+*/
 /*
  * The purpose of wake_affine() is to quickly determine on which CPU we can run
  * soonest. For the purpose of speed we only consider the waking and previous
@@ -12208,7 +12209,7 @@ static inline bool nohz_kick_needed(struct rq *rq, bool only_update) { return fa
  * run_rebalance_domains is triggered when needed from the scheduler tick.
  * Also triggered for nohz idle balancing (with nohz_balancing_kick set).
  */
-static __latent_entropy void run_rebalance_domains(struct softirq_action *h)
+static __latent_entropy void run_rebalance_domains(void)
 {
 	struct rq *this_rq = this_rq();
 	enum cpu_idle_type idle = this_rq->idle_balance ?
