@@ -1,66 +1,149 @@
 // SPDX-License-Identifier: GPL-2.0
-
+/*
+ * trace context switch
+ *
+ * Copyright (C) 2007 Steven Rostedt <srostedt@redhat.com>
+ *
+ */
 #include <linux/module.h>
+#include <linux/kallsyms.h>
+#include <linux/uaccess.h>
 #include <linux/ftrace.h>
 #include <trace/events/sched.h>
-#include <linux/sysfs.h>
 
-#define RECORD_CMDLINE 1
-#define RECORD_TGID 2
+#include "trace.h"
 
-static int sched_flags = 0;
+#define RECORD_CMDLINE	1
+#define RECORD_TGID	2
 
-static void probe_sched_switch(void *ignore, bool preempt,
-                               struct task_struct *prev, struct task_struct *next)
+static int		sched_cmdline_ref;
+static int		sched_tgid_ref;
+static DEFINE_MUTEX(sched_register_mutex);
+
+static void
+probe_sched_switch(void *ignore, bool preempt,
+		   struct task_struct *prev, struct task_struct *next)
 {
-    if (sched_flags & RECORD_CMDLINE)
-        tracing_record_taskinfo_sched_switch(prev, next, RECORD_CMDLINE);
+	int flags;
+
+	flags = (RECORD_TGID * !!sched_tgid_ref) +
+		(RECORD_CMDLINE * !!sched_cmdline_ref);
+
+	if (!flags)
+		return;
+	tracing_record_taskinfo_sched_switch(prev, next, flags);
 }
 
-static void probe_sched_wakeup(void *ignore, struct task_struct *wakee)
+static void
+probe_sched_wakeup(void *ignore, struct task_struct *wakee)
 {
-    if (sched_flags & RECORD_TGID)
-        tracing_record_taskinfo(wakee, RECORD_TGID);
+	int flags;
+
+	flags = (RECORD_TGID * !!sched_tgid_ref) +
+		(RECORD_CMDLINE * !!sched_cmdline_ref);
+
+	if (!flags)
+		return;
+	tracing_record_taskinfo(current, flags);
 }
 
 static int tracing_sched_register(void)
 {
-    int ret;
+	int ret;
 
-    if (sched_flags & RECORD_CMDLINE) {
-        ret = register_trace_sched_switch(probe_sched_switch, NULL);
-        if (ret)
-            return ret;
-    }
+	ret = register_trace_sched_wakeup(probe_sched_wakeup, NULL);
+	if (ret) {
+		pr_info("wakeup trace: Couldn't activate tracepoint"
+			" probe to kernel_sched_wakeup\n");
+		return ret;
+	}
 
-    if (sched_flags & RECORD_TGID) {
-        ret = register_trace_sched_wakeup_new(probe_sched_wakeup, NULL);
-        if (ret) {
-            if (sched_flags & RECORD_CMDLINE)
-                unregister_trace_sched_switch(probe_sched_switch, NULL);
-            return ret;
-        }
-    }
+	ret = register_trace_sched_wakeup_new(probe_sched_wakeup, NULL);
+	if (ret) {
+		pr_info("wakeup trace: Couldn't activate tracepoint"
+			" probe to kernel_sched_wakeup_new\n");
+		goto fail_deprobe;
+	}
 
-    return 0;
+	ret = register_trace_sched_switch(probe_sched_switch, NULL);
+	if (ret) {
+		pr_info("sched trace: Couldn't activate tracepoint"
+			" probe to kernel_sched_switch\n");
+		goto fail_deprobe_wake_new;
+	}
+
+	return ret;
+fail_deprobe_wake_new:
+	unregister_trace_sched_wakeup_new(probe_sched_wakeup, NULL);
+fail_deprobe:
+	unregister_trace_sched_wakeup(probe_sched_wakeup, NULL);
+	return ret;
 }
 
 static void tracing_sched_unregister(void)
 {
-    if (sched_flags & RECORD_CMDLINE)
-        unregister_trace_sched_switch(probe_sched_switch, NULL);
-    if (sched_flags & RECORD_TGID)
-        unregister_trace_sched_wakeup_new(probe_sched_wakeup, NULL);
+	unregister_trace_sched_switch(probe_sched_switch, NULL);
+	unregister_trace_sched_wakeup_new(probe_sched_wakeup, NULL);
+	unregister_trace_sched_wakeup(probe_sched_wakeup, NULL);
 }
 
-void set_sched_flags(int flags)
+static void tracing_start_sched_switch(int ops)
 {
-    sched_flags = flags;
-    tracing_sched_unregister();
-    tracing_sched_register();
+	bool sched_register;
+
+	mutex_lock(&sched_register_mutex);
+	sched_register = (!sched_cmdline_ref && !sched_tgid_ref);
+
+	switch (ops) {
+	case RECORD_CMDLINE:
+		sched_cmdline_ref++;
+		break;
+
+	case RECORD_TGID:
+		sched_tgid_ref++;
+		break;
+	}
+
+	if (sched_register && (sched_cmdline_ref || sched_tgid_ref))
+		tracing_sched_register();
+	mutex_unlock(&sched_register_mutex);
 }
 
-void cleanup_tracing(void)
+static void tracing_stop_sched_switch(int ops)
 {
-    tracing_sched_unregister();
+	mutex_lock(&sched_register_mutex);
+
+	switch (ops) {
+	case RECORD_CMDLINE:
+		sched_cmdline_ref--;
+		break;
+
+	case RECORD_TGID:
+		sched_tgid_ref--;
+		break;
+	}
+
+	if (!sched_cmdline_ref && !sched_tgid_ref)
+		tracing_sched_unregister();
+	mutex_unlock(&sched_register_mutex);
+}
+
+void tracing_start_cmdline_record(void)
+{
+	tracing_start_sched_switch(RECORD_CMDLINE);
+}
+
+void tracing_stop_cmdline_record(void)
+{
+	tracing_stop_sched_switch(RECORD_CMDLINE);
+}
+
+void tracing_start_tgid_record(void)
+{
+	tracing_start_sched_switch(RECORD_TGID);
+}
+
+void tracing_stop_tgid_record(void)
+{
+	tracing_stop_sched_switch(RECORD_TGID);
 }
