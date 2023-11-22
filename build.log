@@ -1,4 +1,0 @@
-../kernel/sched/fair.c:6604:12: warning: unused function 'wake_wide' [-Wunused-function]
-static int wake_wide(struct task_struct *p)
-           ^
-1 warning generated.
