@@ -3295,7 +3295,6 @@ static int __init rcu_spawn_gp_kthread(void)
 	unsigned long flags;
 	int kthread_prio_in = kthread_prio;
 	struct rcu_node *rnp;
-	struct sched_param sp;
 	struct task_struct *t;
 
 	/* Force priority into range. */

@@ -1,0 +1,12 @@
+../kernel/rcu/tree.c:3298:21: warning: unused variable 'sp' [-Wunused-variable]
+        struct sched_param sp;
+                           ^
+1 warning generated.
+../kernel/sched/fair.c:6604:12: warning: unused function 'wake_wide' [-Wunused-function]
+static int wake_wide(struct task_struct *p)
+           ^
+1 warning generated.
+../kernel/sched/cpufreq_schedutil.c:623:6: warning: unused variable 'ret' [-Wunused-variable]
+        int ret;
+            ^
+1 warning generated.
