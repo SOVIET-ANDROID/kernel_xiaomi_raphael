@@ -1169,16 +1169,13 @@ struct ext4_inode_info {
  * based on per file system feature or property or in special cases such as
  * distinguishing between explicit mount option definition and default.
  */
-#define EXT4_MOUNT2_EXPLICIT_DELALLOC	0x00000001 /* User explicitly
-						      specified delalloc */
-#define EXT4_MOUNT2_STD_GROUP_SIZE	0x00000002 /* We have standard group
-						      size of blocksize * 8
-						      blocks */
-#define EXT4_MOUNT2_HURD_COMPAT		0x00000004 /* Support HURD-castrated
-						      file systems */
+#define EXT4_MOUNT2_EXPLICIT_DELALLOC	0x00000001 /* User explicitly specified delalloc */
+#define EXT4_MOUNT2_STD_GROUP_SIZE	0x00000002 /* We have standard group size of blocksize * 8 blocks */
+#define EXT4_MOUNT2_HURD_COMPAT		0x00000004 /* Support HURD-castrated file systems */
 
-#define EXT4_MOUNT2_EXPLICIT_JOURNAL_CHECKSUM	0x00000008 /* User explicitly
-						specified journal checksum */
+#define EXT4_MOUNT2_EXPLICIT_JOURNAL_CHECKSUM	0x00000008 /* User explicitly specified journal checksum */
+
+#define EXT4_MOUNT2_NO_SEHASH_XATTR  0x00000010 /* Ignore security.sehash extended attribute */
 
 #define clear_opt(sb, opt)		EXT4_SB(sb)->s_mount_opt &= \
 						~EXT4_MOUNT_##opt
