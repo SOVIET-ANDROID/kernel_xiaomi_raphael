@@ -37,14 +37,26 @@ export KBUILD_BUILD_HOST=SAKSHAM
 
 # Paths
 KERNEL_DIR=$PWD
-REPACK_DIR=$HOME/ziptool
 ZIP_MOVE=$HOME
+REPACK_DIR=$ZIP_MOVE/ziptool
+
 
 # Functions
 clean_all() {
 		rm -rf $REPACK_DIR/Image* $REPACK_DIR/dtbo.img
 		cd $KERNEL_DIR
 		make mrproper
+}
+
+zipremove() {
+	rm $ZIP_MOVE/NENO-KERNEL-V1-legacy-20231122*.zip
+	print_ui "Zip file removed..."
+}
+
+sideload() {
+	cd $ZIP_MOVE
+	adb sideload NENO-KERNEL-V1-legacy-20231122*.zip
+	cd $KERNEL_DIR
 }
 
 make_kernel() {
@@ -65,9 +77,9 @@ make_zip() {
 DATE_START=$(date +"%s")
 
 
-print "------------------"
-print "  Making Kernel:  "
-print "------------------"
+print "-----------------"
+print "  Making Kernel  "
+print "-----------------"
 
 while read -p "Do you want to clean stuffs (y/n)? " cchoice
 do
@@ -103,8 +115,40 @@ case "$dchoice" in
 esac
 done
 
+while read -p "Do you want to adb sideload zip (y/n)? " zchoice
+do 
+	case "$zchoice" in 
+		y|Y ) 
+			sideload
+			break
+			;;
+		n|N )
+			break
+			;;
+		* ) 
+			print_ui "Invalid input Try again!"
+			;;
+	esac
+done
+
+while read -p "Do you want to delete kernel zip file (y/n)? " rchoice
+do 
+	case "$rchoice" in 
+		y|Y ) 
+			zipremove
+			break
+			;;
+		n|N )
+			break
+			;;
+		* ) 
+			print_ui "Invalid input Try again!"
+			;;
+	esac
+done
+
 print "-------------------"
-print "Build Completed in:"
+print "  Build Completed  "
 print "-------------------"
 
 DATE_END=$(date +"%s")
