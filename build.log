@@ -1,0 +1,52 @@
+../kernel/sched/fair.c:6604:12: warning: unused function 'wake_wide' [-Wunused-function]
+static int wake_wide(struct task_struct *p)
+           ^
+1 warning generated.
+../fs/pstore/ram.c:720:2: error: implicit declaration of function 'ramoops_parse_dt_u32' [-Werror,-Wimplicit-function-declaration]
+        parse_u32("record-size", pdata->record_size, 0);
+        ^
+../fs/pstore/ram.c:714:9: note: expanded from macro 'parse_u32'
+                ret = ramoops_parse_dt_u32(pdev, name, default_value,   \
+                      ^
+../fs/pstore/ram.c:721:2: error: implicit declaration of function 'ramoops_parse_dt_u32' [-Werror,-Wimplicit-function-declaration]
+        parse_u32("console-size", pdata->console_size, 0);
+        ^
+../fs/pstore/ram.c:714:9: note: expanded from macro 'parse_u32'
+                ret = ramoops_parse_dt_u32(pdev, name, default_value,   \
+                      ^
+../fs/pstore/ram.c:722:2: error: implicit declaration of function 'ramoops_parse_dt_u32' [-Werror,-Wimplicit-function-declaration]
+        parse_u32("ftrace-size", pdata->ftrace_size, 0);
+        ^
+../fs/pstore/ram.c:714:9: note: expanded from macro 'parse_u32'
+                ret = ramoops_parse_dt_u32(pdev, name, default_value,   \
+                      ^
+../fs/pstore/ram.c:723:2: error: implicit declaration of function 'ramoops_parse_dt_u32' [-Werror,-Wimplicit-function-declaration]
+        parse_u32("pmsg-size", pdata->pmsg_size, 0);
+        ^
+../fs/pstore/ram.c:714:9: note: expanded from macro 'parse_u32'
+                ret = ramoops_parse_dt_u32(pdev, name, default_value,   \
+                      ^
+../fs/pstore/ram.c:724:2: error: implicit declaration of function 'ramoops_parse_dt_u32' [-Werror,-Wimplicit-function-declaration]
+        parse_u32("ecc-size", pdata->ecc_info.ecc_size, 0);
+        ^
+../fs/pstore/ram.c:714:9: note: expanded from macro 'parse_u32'
+                ret = ramoops_parse_dt_u32(pdev, name, default_value,   \
+                      ^
+../fs/pstore/ram.c:725:2: error: implicit declaration of function 'ramoops_parse_dt_u32' [-Werror,-Wimplicit-function-declaration]
+        parse_u32("flags", pdata->flags, 0);
+        ^
+../fs/pstore/ram.c:714:9: note: expanded from macro 'parse_u32'
+                ret = ramoops_parse_dt_u32(pdev, name, default_value,   \
+                      ^
+../fs/pstore/ram.c:726:2: error: implicit declaration of function 'ramoops_parse_dt_u32' [-Werror,-Wimplicit-function-declaration]
+        parse_u32("max-reason", pdata->max_reason, pdata->max_reason);
+        ^
+../fs/pstore/ram.c:714:9: note: expanded from macro 'parse_u32'
+                ret = ramoops_parse_dt_u32(pdev, name, default_value,   \
+                      ^
+7 errors generated.
+make[3]: *** [../scripts/Makefile.build:354: fs/pstore/ram.o] Error 1
+make[2]: *** [../scripts/Makefile.build:667: fs/pstore] Error 2
+make[1]: *** [/home/saksham/kernelxiaomi/kernel_xiaomi_raphael/Makefile:1292: fs] Error 2
+make[1]: *** Waiting for unfinished jobs....
+make: *** [Makefile:155: sub-make] Error 2

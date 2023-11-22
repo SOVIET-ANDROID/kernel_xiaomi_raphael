@@ -57,12 +57,12 @@ MODULE_DEVICE_TABLE(dmi, chromeos_pstore_dmi_table);
  * contents for panic logs, etc.
  */
 static struct ramoops_platform_data chromeos_ramoops_data = {
-	.mem_size	= 0x100000,
+	.mem_size		= 0x100000,
 	.mem_address	= 0xf00000,
 	.record_size	= 0x40000,
 	.console_size	= 0x20000,
 	.ftrace_size	= 0x20000,
-	.dump_oops	= 1,
+	.max_reason 	= KMSG_DUMP_OOPS,
 };
 
 static struct platform_device chromeos_ramoops = {
