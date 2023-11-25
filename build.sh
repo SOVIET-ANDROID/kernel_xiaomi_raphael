@@ -24,7 +24,7 @@ EDITION="legacy"
 VER="$EDITION"
 
 # Vars
-BASE_AK_VER="SOVIET-STAR-K20P-"
+BASE_AK_VER="NENO-KERNEL-"
 DATE=`date +"%Y%m%d-%H%M"`
 AK_VER="$BASE_AK_VER$VER"
 ZIP_NAME="$AK_VER"-"$DATE"
@@ -62,14 +62,13 @@ make_zip() {
 
 sideload() {
 	cd $HOME
-	adb sideload SOVIET-STAR-K20P-legacy-*.zip
+	adb sideload NENO-KERNEL-legacy-*.zip
 	cd $PWD
 }
 
 removezip() {
 	cd $HOME
-	rm -rf SOVIET-STAR-K20P-legacy-*.zip
-	cd $PWD
+	rm -rf NENO-KERNEL-legacy-*.zip
 }
 
 DATE_START=$(date +"%s")
@@ -98,7 +97,7 @@ esac
 done
 
 
-while read -p "Do you want to build?" dchoice
+while read -p "Do you want to build (y/n)? " dchoice
 do
 case "$dchoice" in
 	y|Y )
@@ -117,7 +116,7 @@ done
 
 while read -p "Do you want to adb sideload (y/n)? " aschoice
 do 	
-	case "aschoice" in 
+	case "$aschoice" in 
 		y|Y )
 			sideload 
 			print_ui "Sideload Completed..."
@@ -128,12 +127,14 @@ do
 			;;
 		* ) 
 			print_ui "Invalid try again!"
+			break
+			;;
 	esac
 done
 
 while read -p "Do you want to remove zip (y/n)? " rchoice
 do 
-	case "rchoice" in	
+	case "$rchoice" in	
 		y|Y ) 
 			removezip
 			print_ui "Zipfile have been removed..."
@@ -144,6 +145,8 @@ do
 			;;
 		* ) 
 			print_ui "Invalid try again!"
+			break
+			;;
 	esac
 done
 
