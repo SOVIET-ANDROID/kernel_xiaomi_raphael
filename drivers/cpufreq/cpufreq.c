@@ -123,7 +123,10 @@ EXPORT_SYMBOL_GPL(have_governor_per_policy);
 
 struct kobject *get_governor_parent_kobj(struct cpufreq_policy *policy)
 {
-	return have_governor_per_policy() ? &policy->kobj : cpufreq_global_kobject;
+	if (have_governor_per_policy())
+		return &policy->kobj;
+	else
+		return cpufreq_global_kobject;
 }
 EXPORT_SYMBOL_GPL(get_governor_parent_kobj);
 
@@ -132,16 +135,15 @@ static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
 	u64 idle_time;
 	u64 cur_wall_time;
 	u64 busy_time;
-	struct kernel_cpustat cpustat = kcpustat_cpu(cpu);
 
 	cur_wall_time = jiffies64_to_nsecs(get_jiffies_64());
 
-	busy_time = cpustat.cpustat[CPUTIME_USER] +
-           		cpustat.cpustat[CPUTIME_SYSTEM] +
-            	cpustat.cpustat[CPUTIME_IRQ] +
-            	cpustat.cpustat[CPUTIME_SOFTIRQ] +
-            	cpustat.cpustat[CPUTIME_STEAL] +
-            	cpustat.cpustat[CPUTIME_NICE];
+	busy_time = kcpustat_cpu(cpu).cpustat[CPUTIME_USER];
+	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_SYSTEM];
+	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_IRQ];
+	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_SOFTIRQ];
+	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_STEAL];
+	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_NICE];
 
 	idle_time = cur_wall_time - busy_time;
 	if (wall)
@@ -154,8 +156,10 @@ u64 get_cpu_idle_time(unsigned int cpu, u64 *wall, int io_busy)
 {
 	u64 idle_time = get_cpu_idle_time_us(cpu, io_busy ? wall : NULL);
 
-	if (idle_time == -1ULL || (!io_busy && (idle_time += get_cpu_iowait_time_us(cpu, wall))))
-    return get_cpu_idle_time_jiffy(cpu, wall);
+	if (idle_time == -1ULL)
+		return get_cpu_idle_time_jiffy(cpu, wall);
+	else if (!io_busy)
+		idle_time += get_cpu_iowait_time_us(cpu, wall);
 
 	return idle_time;
 }
@@ -174,9 +178,10 @@ int cpufreq_generic_init(struct cpufreq_policy *policy,
 {
 	int ret;
 
-	if ((ret = cpufreq_table_validate_and_show(policy, table))) {
-    	pr_debug("%s: invalid frequency table: %d\n", __func__, ret);
-    	return ret;
+	ret = cpufreq_table_validate_and_show(policy, table);
+	if (ret) {
+		pr_debug("%s: invalid frequency table: %d\n", __func__, ret);
+		return ret;
 	}
 
 	policy->cpuinfo.transition_latency = transition_latency;
@@ -237,8 +242,12 @@ struct cpufreq_policy *cpufreq_cpu_get(unsigned int cpu)
 	/* get the cpufreq driver */
 	read_lock_irqsave(&cpufreq_driver_lock, flags);
 
-	if (cpufreq_driver && (policy = cpufreq_cpu_get_raw(cpu))) 
-    	kobject_get(&policy->kobj);	
+	if (cpufreq_driver) {
+		/* get the CPU */
+		policy = cpufreq_cpu_get_raw(cpu);
+		if (policy)
+			kobject_get(&policy->kobj);
+	}
 
 	read_unlock_irqrestore(&cpufreq_driver_lock, flags);
 
@@ -279,18 +288,20 @@ static void adjust_jiffies(unsigned long val, struct cpufreq_freqs *ci)
 	static unsigned int l_p_j_ref_freq;
 
 	if (ci->flags & CPUFREQ_CONST_LOOPS)
-    return;
+		return;
 
-	if (!l_p_j_ref_freq && val == CPUFREQ_POSTCHANGE && ci->old != ci->new) {
+	if (!l_p_j_ref_freq) {
 		l_p_j_ref = loops_per_jiffy;
 		l_p_j_ref_freq = ci->old;
 		pr_debug("saving %lu as reference value for loops_per_jiffy; freq is %u kHz\n",
-				l_p_j_ref, l_p_j_ref_freq);
-		loops_per_jiffy = cpufreq_scale(l_p_j_ref, l_p_j_ref_freq, ci->new);
-		pr_debug("scaling loops_per_jiffy to %lu for frequency %u kHz\n",
-				loops_per_jiffy, ci->new);
+			 l_p_j_ref, l_p_j_ref_freq);
 	}
-
+	if (val == CPUFREQ_POSTCHANGE && ci->old != ci->new) {
+		loops_per_jiffy = cpufreq_scale(l_p_j_ref, l_p_j_ref_freq,
+								ci->new);
+		pr_debug("scaling loops_per_jiffy to %lu for frequency %u kHz\n",
+			 loops_per_jiffy, ci->new);
+	}
 #endif
 }
 
@@ -306,32 +317,38 @@ static void __cpufreq_notify_transition(struct cpufreq_policy *policy,
 	pr_debug("notification %u of frequency transition to %u kHz\n",
 		 state, freqs->new);
 
-	adjust_jiffies(state, freqs);
+	switch (state) {
 
-	switch (state)
-	{
-		case CPUFREQ_PRECHARGE:
-			if (!(cpufreq_driver->flags & CPUFREQ_CONST_LOOPS) &&
-			policy && policy->cpu == freqs->cpu && policy-cur &&
-			policy->cur != freqs->old)
-			{
+	case CPUFREQ_PRECHANGE:
+		/* detect if the driver reported a value as "old frequency"
+		 * which is not equal to what the cpufreq core thinks is
+		 * "old frequency".
+		 */
+		if (!(cpufreq_driver->flags & CPUFREQ_CONST_LOOPS)) {
+			if ((policy) && (policy->cpu == freqs->cpu) &&
+			    (policy->cur) && (policy->cur != freqs->old)) {
 				pr_debug("Warning: CPU frequency is %u, cpufreq assumed %u kHz\n",
-				freqs->old, policy->cur);
-
+					 freqs->old, policy->cur);
 				freqs->old = policy->cur;
 			}
-			srcu_notifier_call_chain(&cpufreq_transition_notifier_list, CPUFREQ_PRECHANGE, freqs);
-			break;
+		}
+		srcu_notifier_call_chain(&cpufreq_transition_notifier_list,
+				CPUFREQ_PRECHANGE, freqs);
+		adjust_jiffies(CPUFREQ_PRECHANGE, freqs);
+		break;
 
-		case CPUFREQ_POSTCHANGE:
-			pr_debug("FREQ: %lu - CPU: %lu\n", (unsigned long)freqs->new, (unsigned long)freqs->cpu);
-			trace_cpu_frequency(freqs->new, freqs->cpu);
-			cpufreq_stats_record_transition(policy, freqs->new);
-			cpufreq_times_record_transition(policy, freqs->new);
-			srcu_notifier_call_chain(&cpufreq_transition_notifier_list, CPUFREQ_POSTCHANGE, freqs);
-			if (likely(policy) && likely(policy->cpu == freqs->cpu))
-				policy->cur = freqs->new;
-			break;
+	case CPUFREQ_POSTCHANGE:
+		adjust_jiffies(CPUFREQ_POSTCHANGE, freqs);
+		pr_debug("FREQ: %lu - CPU: %lu\n",
+			 (unsigned long)freqs->new, (unsigned long)freqs->cpu);
+		trace_cpu_frequency(freqs->new, freqs->cpu);
+		cpufreq_stats_record_transition(policy, freqs->new);
+		cpufreq_times_record_transition(policy, freqs->new);
+		srcu_notifier_call_chain(&cpufreq_transition_notifier_list,
+				CPUFREQ_POSTCHANGE, freqs);
+		if (likely(policy) && likely(policy->cpu == freqs->cpu))
+			policy->cur = freqs->new;
+		break;
 	}
 }
 
@@ -514,12 +531,27 @@ EXPORT_SYMBOL_GPL(cpufreq_driver_resolve_freq);
 
 unsigned int cpufreq_policy_transition_delay_us(struct cpufreq_policy *policy)
 {
+	unsigned int latency;
+
 	if (policy->transition_delay_us)
-    return policy->transition_delay_us;
+		return policy->transition_delay_us;
 
-	unsigned int latency = policy->cpuinfo.transition_latency / NSEC_PER_USEC;
+	latency = policy->cpuinfo.transition_latency / NSEC_PER_USEC;
+	if (latency) {
+		/*
+		 * For platforms that can change the frequency very fast (< 10
+		 * us), the above formula gives a decent transition delay. But
+		 * for platforms where transition_latency is in milliseconds, it
+		 * ends up giving unrealistic values.
+		 *
+		 * Cap the default transition delay to 10 ms, which seems to be
+		 * a reasonable amount of time after which we should reevaluate
+		 * the frequency.
+		 */
+		return min(latency * LATENCY_MULTIPLIER, (unsigned int)10000);
+	}
 
-	return (latency) ? min(latency * LATENCY_MULTIPLIER, (unsigned int)10000) : 0;
+	return LATENCY_MULTIPLIER;
 }
 EXPORT_SYMBOL_GPL(cpufreq_policy_transition_delay_us);
 
@@ -538,9 +570,13 @@ static ssize_t store_boost(struct kobject *kobj, struct kobj_attribute *attr,
 	int ret, enable;
 
 	ret = sscanf(buf, "%d", &enable);
-	if (ret != 1 || enable < 0 || enable > 1 || cpufreq_boost_trigger_state(enable)) {
-    pr_debug("%s: Cannot %s BOOST!\n", __func__, enable ? "enable" : "disable");
-    return -EINVAL;
+	if (ret != 1 || enable < 0 || enable > 1)
+		return -EINVAL;
+
+	if (cpufreq_boost_trigger_state(enable)) {
+		pr_debug("%s: Cannot %s BOOST!\n",
+		       __func__, enable ? "enable" : "disable");
+		return -EINVAL;
 	}
 
 	pr_debug("%s: cpufreq BOOST %s\n",
@@ -587,7 +623,11 @@ static int cpufreq_parse_governor(char *str_governor, unsigned int *policy,
 
 		if (t == NULL) {
 			int ret;
+
+			mutex_unlock(&cpufreq_governor_mutex);
 			ret = request_module("cpufreq_%s", str_governor);
+			mutex_lock(&cpufreq_governor_mutex);
+
 			if (ret == 0)
 				t = find_governor(str_governor);
 		}
@@ -626,9 +666,17 @@ unsigned int cpuinfo_max_freq_cached;
 
 static bool should_use_cached_freq(int cpu)
 {
-	if (!cpuinfo_max_freq_cached || !(BIT(cpu) & sched_lib_mask_force))
-    	return false;
-		
+	/* This is a safe check. may not be needed */
+	if (!cpuinfo_max_freq_cached)
+		return false;
+
+	/*
+	 * perfd already configure sched_lib_mask_force to
+	 * 0xf0 from user space. so re-using it.
+	 */
+	if (!(BIT(cpu) & sched_lib_mask_force))
+		return false;
+
 	return is_sched_lib_based_app(current->pid);
 }
 

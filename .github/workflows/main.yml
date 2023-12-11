@@ -1,0 +1,35 @@
+name: Build on Tag
+ 
+on:
+  push:
+    tags: '*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout kernel source
+      uses: actions/checkout@v2
+
+    - name: Checkout zipper
+      uses: actions/checkout@v2
+      with:
+        repository: SOVIET-ANDROID/AnyKernel3
+        path: zipper
+
+    - name: Android kernel build
+      uses: lemniskett/android-kernel-actions@master
+      id: build
+      env:
+        NAME: PENTAGON
+      with:
+        arch: arm64
+        compiler: aosp-clang/master/clang-r487747c
+        defconfig: raphael_defconfig
+        image: Image.gz-dtb
+
+    - name: Release build
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: ${{ steps.build.outputs.outfile }}
+        token: ${{ secrets.GITHUB_TOKEN }}
