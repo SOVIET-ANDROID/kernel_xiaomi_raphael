@@ -7,6 +7,37 @@
 DEFINE_PER_CPU(struct ida_bitmap *, ida_bitmap);
 static DEFINE_SPINLOCK(simple_ida_lock);
 
+/**
+ * idr_alloc_u32() - Allocate an ID.
+ * @idr: IDR handle.
+ * @ptr: Pointer to be associated with the new ID.
+ * @nextid: Pointer to an ID.
+ * @max: The maximum ID to allocate (inclusive).
+ * @gfp: Memory allocation flags.
+ *
+ * Allocates an unused ID in the range specified by @nextid and @max.
+ * Note that @max is inclusive whereas the @end parameter to idr_alloc()
+ * is exclusive.
+ *
+ * The caller should provide their own locking to ensure that two
+ * concurrent modifications to the IDR are not possible.  Read-only
+ * accesses to the IDR may be done under the RCU read lock or may
+ * exclude simultaneous writers.
+ *
+ * Return: 0 if an ID was allocated, -ENOMEM if memory allocation failed,
+ * or -ENOSPC if no free IDs could be found.  If an error occurred,
+ * @nextid is unchanged.
+ */
+int idr_alloc_u32(struct idr *idr, void *ptr, u32 *nextid,
+			unsigned long max, gfp_t gfp)
+{
+	unsigned long tmp = *nextid;
+	int ret = idr_alloc_ext(idr, ptr, &tmp, tmp, max + 1, gfp);
+	*nextid = tmp;
+	return ret;
+}
+EXPORT_SYMBOL_GPL(idr_alloc_u32);
+
 int idr_alloc_cmn(struct idr *idr, void *ptr, unsigned long *index,
 		  unsigned long start, unsigned long end, gfp_t gfp,
 		  bool ext)
@@ -65,13 +96,13 @@ int idr_alloc_cyclic(struct idr *idr, void *ptr, int start, int end, gfp_t gfp)
 EXPORT_SYMBOL(idr_alloc_cyclic);
 
 /**
- * idr_for_each - iterate through all stored pointers
- * @idr: idr handle
- * @fn: function to be called for each pointer
- * @data: data passed to callback function
+ * idr_for_each() - Iterate through all stored pointers.
+ * @idr: IDR handle.
+ * @fn: Function to be called for each pointer.
+ * @data: Data passed to callback function.
  *
  * The callback function will be called for each entry in @idr, passing
- * the id, the pointer and the data pointer passed to this function.
+ * the ID, the entry and @data.
  *
  * If @fn returns anything other than %0, the iteration stops and that
  * value is returned from this function.
@@ -98,9 +129,9 @@ int idr_for_each(const struct idr *idr,
 EXPORT_SYMBOL(idr_for_each);
 
 /**
- * idr_get_next - Find next populated entry
- * @idr: idr handle
- * @nextid: Pointer to lowest possible ID to return
+ * idr_get_next() - Find next populated entry.
+ * @idr: IDR handle.
+ * @nextid: Pointer to an ID.
  *
  * Returns the next populated entry in the tree with an ID greater than
  * or equal to the value pointed to by @nextid.  On exit, @nextid is updated
@@ -135,7 +166,17 @@ void *idr_get_next(struct idr *idr, int *nextid)
 }
 EXPORT_SYMBOL(idr_get_next);
 
-void *idr_get_next_ext(struct idr *idr, unsigned long *nextid)
+/**
+ * idr_get_next_ul() - Find next populated entry.
+ * @idr: IDR handle.
+ * @nextid: Pointer to an ID.
+ *
+ * Returns the next populated entry in the tree with an ID greater than
+ * or equal to the value pointed to by @nextid.  On exit, @nextid is updated
+ * to the ID of the found value.  To use in a loop, the value pointed to by
+ * nextid must be incremented by the user.
+ */
+void *idr_get_next_ul(struct idr *idr, unsigned long *nextid)
 {
 	struct radix_tree_iter iter;
 	void __rcu **slot;
@@ -147,7 +188,7 @@ void *idr_get_next_ext(struct idr *idr, unsigned long *nextid)
 	*nextid = iter.index;
 	return rcu_dereference_raw(*slot);
 }
-EXPORT_SYMBOL(idr_get_next_ext);
+EXPORT_SYMBOL(idr_get_next_ul);
 
 /**
  * idr_replace - replace pointer for given id

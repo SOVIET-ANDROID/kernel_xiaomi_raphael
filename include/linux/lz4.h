@@ -268,7 +268,7 @@ int LZ4_compress_destSize(const char *source, char *dest, int *sourceSizePtr,
  * @compressedSize: is the precise full size of the compressed block
  * @maxDecompressedSize: is the size of 'dest' buffer
  *
- * Decompresses data fom 'source' into 'dest'.
+ * Decompresses data from 'source' into 'dest'.
  * If the source stream is detected malformed, the function will
  * stop decoding and return a negative result.
  * This function is protected against buffer overflow exploits,
@@ -513,7 +513,7 @@ int LZ4_setStreamDecode(LZ4_streamDecode_t *LZ4_streamDecode,
 			const char *dictionary, int dictSize);
 
 /**
- * LZ4_decompress_fast_continue() - Decompress blocks in streaming mode
+ * LZ4_decompress_safe_continue() - Decompress blocks in streaming mode
  * @LZ4_streamDecode: the 'LZ4_streamDecode_t' structure
  * @source: source address of the compressed data
  * @dest: output buffer address of the uncompressed data
@@ -521,7 +521,7 @@ int LZ4_setStreamDecode(LZ4_streamDecode_t *LZ4_streamDecode,
  * @compressedSize: is the precise full size of the compressed block
  * @maxDecompressedSize: is the size of 'dest' buffer
  *
- * These decoding function allows decompression of multiple blocks
+ * This decoding function allows decompression of multiple blocks
  * in "streaming" mode.
  * Previously decoded blocks *must* remain available at the memory position
  * where they were decoded (up to 64 KB)
@@ -584,7 +584,7 @@ int LZ4_decompress_safe_continue(LZ4_streamDecode_t *LZ4_streamDecode,
  *	which must be already allocated with 'originalSize' bytes
  * @originalSize: is the original and therefore uncompressed size
  *
- * These decoding function allows decompression of multiple blocks
+ * This decoding function allows decompression of multiple blocks
  * in "streaming" mode.
  * Previously decoded blocks *must* remain available at the memory position
  * where they were decoded (up to 64 KB)
@@ -626,10 +626,10 @@ int LZ4_decompress_safe_continue(LZ4_streamDecode_t *LZ4_streamDecode,
  * @dictStart: pointer to the start of the dictionary in memory
  * @dictSize: size of dictionary
  *
- * These decoding function works the same as
+ * This decoding function works the same as
  * a combination of LZ4_setStreamDecode() followed by
  * LZ4_decompress_safe_continue()
- * It is stand-alone, and don'tn eed a LZ4_streamDecode_t structure.
+ * It is stand-alone, and doesn't need an LZ4_streamDecode_t structure.
  *
  * Return: number of bytes decompressed into destination buffer
  *	(necessarily <= maxDecompressedSize)
@@ -649,10 +649,10 @@ int LZ4_decompress_safe_continue(LZ4_streamDecode_t *LZ4_streamDecode,
  * @dictStart: pointer to the start of the dictionary in memory
  * @dictSize: size of dictionary
  *
- * These decoding function works the same as
+ * This decoding function works the same as
  * a combination of LZ4_setStreamDecode() followed by
- * LZ4_decompress_safe_continue()
- * It is stand-alone, and don'tn eed a LZ4_streamDecode_t structure.
+ * LZ4_decompress_fast_continue()
+ * It is stand-alone, and doesn't need an LZ4_streamDecode_t structure.
  *
  * Return: number of bytes decompressed into destination buffer
  *	(necessarily <= maxDecompressedSize)

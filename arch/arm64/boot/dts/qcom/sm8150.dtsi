@@ -566,21 +566,9 @@
 
 	firmware: firmware {
 		android {
+			boot_devices = "soc/1d84000.ufshc";
 			compatible = "android,firmware";
 			shared_meta: vbmeta {
-				compatible = "android,vbmeta";
-				parts = "vbmeta,boot,system,vendor,dtbo";
-			};
-			android_q_fstab: fstab {
-				compatible = "android,fstab";
-				vendor {
-					compatible = "android,vendor";
-					dev = "/dev/block/platform/soc/8804000.ufshc/by-name/vendor";
-					type = "ext4";
-					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait";
-					status = "ok";
-				};
 			};
 		};
 	};
