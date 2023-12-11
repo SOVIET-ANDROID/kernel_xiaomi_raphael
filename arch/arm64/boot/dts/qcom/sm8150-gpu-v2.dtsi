@@ -1,0 +1,62 @@
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	gpu_opp_table_v2: gpu_opp_table_v2 {
+		compatible = "operating-points-v2";
+
+		opp-770000000 {
+			opp-hz = /bits/ 64 <770000000>;
+			opp-microvolt = <296>;
+		};
+
+		opp-725000000 {
+			opp-hz = /bits/ 64 <725000000>;
+			opp-microvolt = <206>;
+		};
+
+		opp-692000000 {
+			opp-hz = /bits/ 64 <692000000>;
+			opp-microvolt = <206>;
+		};
+
+		opp-620000000 {
+			opp-hz = /bits/ 64 <620000000>;
+			opp-microvolt = <138>;
+		};
+
+		opp-535000000 {
+			opp-hz = /bits/ 64 <535000000>;
+			opp-microvolt = <78>;
+		};
+
+		opp-480000000 {
+			opp-hz = /bits/ 64 <480000000>;
+			opp-microvolt = <70>;
+		};
+
+		opp-360000000 {
+			opp-hz = /bits/ 64 <360000000>;
+			opp-microvolt = <24>;
+		};
+
+		opp-270000000 {
+			opp-hz = /bits/ 64 <270000000>;
+			opp-microvolt = <23>;
+		};
+
+		opp-180000000 {
+			opp-hz = /bits/ 64 <180000000>;
+			opp-microvolt = <22>;
+		};
+	};
+};

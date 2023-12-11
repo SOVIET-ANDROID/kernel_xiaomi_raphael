@@ -1,0 +1,82 @@
+Simple MSM thermal driver (MSM_THERMAL_SIMPLE)
+
+MSM_THERMAL_SIMPLE is a standalone kernel driver which regulates thermal
+conditions on the device in the absence of an equivalent userspace daemon. The
+goal of MSM_THERMAL_SIMPLE is to prevent the temperature of the system from
+exceeding a thermal limit at which it cannot operate. The MSM_THERMAL_SIMPLE
+driver polls a list of CPU thermal sensors per core, and reduces the
+maximum CPU frequency in steps, to limit power/thermal output when a threshold
+temperature is crossed. It restores the maximum CPU frequency in the same
+stepwise fashion when the threshold temperature is cleared.
+
+The devicetree representation of the MSM_THERMAL_SIMPLE block should be:
+
+Required properties:
+- compatible: "qcom,msm-thermal-simple"
+
+- qcom,poll-ms:
+	The amount of time in milliseconds between each polling interval.
+
+- zone@NUM:
+	A zone node containing the following properties, where the lowest zone
+	node number (NUM) corresponds to the lightest thermal throttle step. An
+	unlimited number of zones may be specified. Each zone node should be
+	formatted as so:
+	- reg:
+		The thermal zone number.
+
+	- qcom,silver-khz:
+		The frequency limit in kHz for the silver CPU cluster.
+
+	- qcom,gold-khz:
+		The frequency limit in kHz for the gold CPU cluster.
+
+	- qcom,prime-khz:
+		The frequency limit in kHz for the prime CPU cluster (if it exists).
+
+	- qcom,trip-deg:
+		The temperature corresponding to this zone. The units for this
+		are ambiguous; they correspond to whichever units the selected
+		ADC channel uses for its output.
+
+Optional properties:
+- qcom,start-delay:
+	The amount of time in seconds to wait for thermal monitoring to start
+	after the driver has initialized. This is useful to avoid thermal
+	throttling during boot. By default, this is set to 0.
+
+Example:
+
+	qcom,msm-thermal-simple {
+		compatible = "qcom,msm-thermal-simple";
+		qcom,poll-ms = <3000>;
+		qcom,start-delay = <60>;
+
+		zone@0 {
+			reg = <0>;
+			qcom,silver-khz = <1766400>;
+			qcom,gold-khz = <2246400>;
+			qcom,trip-deg = <36000>;
+		};
+
+		zone@1 {
+			reg = <1>;
+			qcom,silver-khz = <1766400>;
+			qcom,gold-khz = <2169600>;
+			qcom,trip-deg = <37000>;
+		};
+
+		zone@2 {
+			reg = <2>;
+			qcom,silver-khz = <1766400>;
+			qcom,gold-khz = <2092800>;
+			qcom,trip-deg = <38000>;
+		};
+
+		zone@3 {
+			reg = <3>;
+			qcom,silver-khz = <1766400>;
+			qcom,gold-khz = <1996800>;
+			qcom,trip-deg = <39000>;
+		};
+	};

@@ -1,0 +1,46 @@
+Qualcomm Qualcomm Technologies, Inc. Subsystem Backup-Restore Device binding
+
+This binding describes the Qualcomm Qualcomm Technologies, Inc. Subsystem
+Backup-Restore Device bindings.
+
+- compatible:
+	Usage: required
+	Value type: <stringlist>
+	Definition: must be:
+		    "qcom,subsys-backup"
+
+- memory-region:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: handle to memory region for allocating the memory for
+		    backup and restore.
+
+- qcom,buf-size:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: Size of each backup buffer.
+
+
+= EXAMPLE
+The following example shows allocating two 6MB memory region for backup and
+restore purpose.
+
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		subsys_backup_region: subsys_backup_region {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0xC00000>;
+		};
+	};
+
+	soc {
+		subsys_backup: qcom,subsys-backup {
+			compatible = "qcom,subsys-backup";
+			qcom,buf-size = <0x600000>;
+			memory-region = <&subsys_backup_region>;
+		};
+	};

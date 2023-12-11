@@ -1,0 +1,61 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&slim_aud {
+	pahu_codec {
+		swr_master {
+			compatible = "qcom,swr-wcd";
+			#address-cells = <2>;
+			#size-cells = <0>;
+
+			wsa881x_0211: wsa881x@20170211 {
+				status = "disabled";
+			};
+
+			wsa881x_0212: wsa881x@20170212 {
+				status = "disabled";
+			};
+
+			wsa881x_0213: wsa881x@21170213 {
+				status = "disabled";
+			};
+
+			wsa881x_0214: wsa881x@21170214 {
+				status = "disabled";
+			};
+		};
+	};
+
+	tavil_codec {
+		swr_master {
+			compatible = "qcom,swr-wcd";
+			#address-cells = <2>;
+			#size-cells = <0>;
+
+			wsa881x_70211: wsa881x@20170211 {
+				status = "disabled";
+			};
+
+			wsa881x_70212: wsa881x@20170212 {
+				status = "disabled";
+			};
+
+			wsa881x_70213: wsa881x@21170213 {
+				status = "disabled";
+			};
+
+			wsa881x_70214: wsa881x@21170214 {
+				status = "disabled";
+			};
+		};
+	};
+};

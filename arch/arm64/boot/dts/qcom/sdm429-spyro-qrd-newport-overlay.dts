@@ -1,0 +1,87 @@
+/*
+ * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/qcom,rpmcc.h>
+#include "sdm429-spyro-qrd-newport.dtsi"
+#include "sdm429-mdss-panels.dtsi"
+#include "sdm429-spyro-qrd-evt-audio.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDM429 QRD NewPort Overlay";
+	compatible = "qcom,sdm429w-qrd", "qcom,sdm429w", "qcom,qrd";
+	qcom,msm-id = <416 0x0>;
+	qcom,board-id = <0x00010b 0x6>;
+	qcom,pmic-id = <0x0002001b 0x0 0x0 0x0>;
+
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi {
+	vddio-supply = <&L11A>; /* 1.8v */
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_truly_rm69090_qvga_cmd_v2>;
+	/delete-property/ vdd-supply;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	vddio-supply = <&L11A>;
+	qcom,platform-te-gpio = <&tlmm 24 0>;
+	qcom,platform-reset-gpio = <&tlmm 60 0>;
+	qcom,platform-enable-gpio = <&tlmm 69 0>;
+	qcom,buf-enable-gpio = <&tlmm 69 0>;
+
+};
+
+&mdss_dsi1 {
+	status = "disabled";
+};
+
+&mdss_dsi0_pll {
+	vddio-supply = <&L12A>; /* 1.8V */
+};
+
+&mdss_dsi1_pll {
+	vddio-supply = <&L12A>; /* 1.8V */
+};
+
+&modem_mem {
+	reg = <0x0 0x86800000 0x0 0x5500000>;
+};
+
+&adsp_fw_mem {
+	reg = <0x0 0x8bd00000 0x0 0x1500000>;
+};
+
+&wcnss_fw_mem {
+	reg = <0x0 0x8d200000 0x0 0x700000>;
+};
+
+&dsi_pm660_panel_pwr_supply {
+	/delete-node/ qcom,panel-supply-entry@0;
+};
+
+&blsp2_uart2_hs {
+	status = "disabled";
+};
+
+&int_codec {
+	qcom,model = "sdm429w-wtp-snd-card";
+};
