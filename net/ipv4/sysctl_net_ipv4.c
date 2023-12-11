@@ -1155,13 +1155,13 @@ static struct ctl_table ipv4_net_table[] = {
 		.extra2		= &hundred,
 	},
 	{
-		.procname	= "tcp_simult_connect",
-		.data		= &sysctl_tcp_simult_connect,
-		.maxlen		= sizeof(int),
-		.mode		= 0644,
+		.procname		= "tcp_simult_connect",
+		.data			= &sysctl_tcp_simult_connect,
+		.maxlen			= sizeof(int),
+		.mode			= 0644,
 		.proc_handler	= proc_dointvec_minmax,
-		.extra1		= &zero,
-		.extra2		= &one,
+		.extra1			= &zero,
+		.extra2			= &one,
 	},
 	{ }
 };
