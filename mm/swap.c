@@ -89,9 +89,16 @@ static void __put_compound_page(struct page *page)
 	 * (it's never listed to any LRU lists) and no memcg routines should
 	 * be called for hugetlb (it has a separate hugetlb_cgroup.)
 	 */
-	if (!PageHuge(page))
-		__page_cache_release(page);
-	dtor = get_compound_page_dtor(page);
+	if (!PageHuge(page)) {
+    __page_cache_release(page);
+    dtor = get_compound_page_dtor(page);
+    BUG_ON((dtor != free_compound_page)
+#ifdef CONFIG_TRANSPARENT_HUGEPAGE
+        && (dtor != free_transhuge_page)
+#endif
+   		);
+	}
+
 	(*dtor)(page);
 }
 

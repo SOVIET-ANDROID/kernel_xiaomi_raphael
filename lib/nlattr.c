@@ -339,13 +339,11 @@ EXPORT_SYMBOL(nla_strdup);
  */
 int nla_memcpy(void *dest, const struct nlattr *src, int count)
 {
-	int minlen = min_t(int, count, nla_len(src));
-
+	int minlen = min(count, nla_len(src));
 	memcpy(dest, nla_data(src), minlen);
 	if (count > minlen)
 		memset(dest + minlen, 0, count - minlen);
-
-	return minlen;
+return minlen;
 }
 EXPORT_SYMBOL(nla_memcpy);
 
@@ -382,9 +380,8 @@ int nla_strcmp(const struct nlattr *nla, const char *str)
 	while (attrlen > 0 && buf[attrlen - 1] == '\0')
 		attrlen--;
 
-	d = attrlen - len;
-	if (d == 0)
-		d = memcmp(nla_data(nla), str, len);
+	d = memcmp(nla_data(nla), str, len);
+	d = (d == 0) ? attrlen - len : d;
 
 	return d;
 }
