@@ -477,8 +477,8 @@ static int teo_select(struct cpuidle_driver *drv, struct cpuidle_device *dev,
 	 * Skip the timers check if state 0 is the current candidate one,
 	 * because an immediate non-timer wakeup is expected in that case.
 	 */
-	if (!idx)
-		goto out_tick;
+	/*if (!idx)
+		goto out_tick;*/
 
 	/*
 	 * If state 0 is a polling one, check if the target residency of
