@@ -20,7 +20,7 @@ $(eval KSU_VERSION=$(shell expr 10000 + $(KSU_GIT_VERSION) + 200))
 $(info -- KernelSU version: $(KSU_VERSION))
 ccflags-y += -DKSU_VERSION=$(KSU_VERSION)
 else # If there is no .git file, the default version will be passed.
-KSU_GIT_VERSION := 1192
+KSU_GIT_VERSION := 1234
 $(eval KSU_VERSION=$(shell expr 10000 + $(KSU_GIT_VERSION) + 200))
 ccflags-y += -DKSU_VERSION=$(KSU_VERSION)
 endif
