@@ -9602,10 +9602,10 @@ static void update_blocked_averages(int cpu)
 	struct rq *rq = cpu_rq(cpu);
 	struct cfs_rq *cfs_rq;
 	struct rq_flags rf;
+	unsigned long thermal_pressure;
 
 	rq_lock_irqsave(rq, &rf);
 	update_rq_clock(rq);
-	unsigned long thermal_pressure;
 
 	/*
 	 * Iterates the task_group tree in a bottom up fashion, see

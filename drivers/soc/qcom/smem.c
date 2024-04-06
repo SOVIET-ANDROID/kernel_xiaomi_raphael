@@ -425,7 +425,6 @@ static int qcom_smem_alloc_private(struct qcom_smem *smem,
 	le32_add_cpu(&phdr->offset_free_uncached, alloc_size);
 
 	return 0;
-bad_canary:
 	dev_err(smem->dev, "Found invalid canary in hosts %hu:%hu partition\n",
 		le16_to_cpu(phdr->host0), le16_to_cpu(phdr->host1));
 
