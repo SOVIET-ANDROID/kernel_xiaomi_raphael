@@ -77,9 +77,8 @@
 			reg = <0x0 0x0>;
 			enable-method = "psci";
 			capacity-dmips-mhz = <488>;
+			dynamic-power-coefficient = <232>;
 			next-level-cache = <&L2_0>;
-			freq-energy-model;
-			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			#cooling-cells = <2>;
 			L2_0: l2-cache {
@@ -114,9 +113,8 @@
 			reg = <0x0 0x100>;
 			enable-method = "psci";
 			capacity-dmips-mhz = <488>;
+			dynamic-power-coefficient = <232>;
 			next-level-cache = <&L2_1>;
-			freq-energy-model;
-			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			#cooling-cells = <2>;
 			L2_1: l2-cache {
@@ -146,9 +144,8 @@
 			reg = <0x0 0x200>;
 			enable-method = "psci";
 			capacity-dmips-mhz = <488>;
+			dynamic-power-coefficient = <232>;
 			next-level-cache = <&L2_2>;
-			freq-energy-model;
-			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			#cooling-cells = <2>;
 			L2_2: l2-cache {
@@ -178,9 +175,8 @@
 			reg = <0x0 0x300>;
 			enable-method = "psci";
 			capacity-dmips-mhz = <488>;
+			dynamic-power-coefficient = <232>;
 			next-level-cache = <&L2_3>;
-			freq-energy-model;
-			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			#cooling-cells = <2>;
 			L2_3: l2-cache {
@@ -210,9 +206,8 @@
 			reg = <0x0 0x400>;
 			enable-method = "psci";
 			capacity-dmips-mhz = <1024>;
+			dynamic-power-coefficient = <369>;
 			next-level-cache = <&L2_4>;
-			freq-energy-model;
-			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
 			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 			L2_4: l2-cache {
@@ -251,9 +246,8 @@
 			reg = <0x0 0x500>;
 			enable-method = "psci";
 			capacity-dmips-mhz = <1024>;
+			dynamic-power-coefficient = <369>;
 			next-level-cache = <&L2_5>;
-			freq-energy-model;
-			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
 			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 			L2_5: l2-cache {
@@ -292,9 +286,8 @@
 			reg = <0x0 0x600>;
 			enable-method = "psci";
 			capacity-dmips-mhz = <1024>;
+			dynamic-power-coefficient = <369>;
 			next-level-cache = <&L2_6>;
-			freq-energy-model;
-			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
 			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 			L2_6: l2-cache {
@@ -333,9 +326,8 @@
 			reg = <0x0 0x700>;
 			enable-method = "psci";
 			capacity-dmips-mhz = <1024>;
+			dynamic-power-coefficient = <421>;
 			next-level-cache = <&L2_7>;
-			freq-energy-model;
-			sched-energy-costs = <&CPU_COST_2 &CLUSTER_COST_2>;
 			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 			L2_7: l2-cache {
@@ -408,149 +400,6 @@
 			};
 		};
 	};
-
-	energy_costs: energy-costs {
-		compatible = "sched-energy";
-
-		CPU_COST_0: core-cost0 {
-			busy-cost-data = <
-				 300000  28
-				 403200  30
-				 480000  33
-				 576000  37
-				 672000  42
-				 768000  47
-				 864000  54
-				 979200  63
-				1075200  70
-				1171200  79
-				1267200  88
-			>;
-			idle-cost-data = <
-				18 14 12
-			>;
-		};
-
-		CPU_COST_1: core-cost1 {
-			busy-cost-data = <
-				 576000 133
-				 672000 152
-				 768000 175
-				 864000 202
-				 960000 233
-				1056000 267
-				1152000 304
-				1248000 344
-				1344000 386
-				1420800 421
-				1497600 458
-				1593600 505
-				1689600 560
-				1785600 622
-				1862400 678
-				1939200 740
-				2016000 807
-			>;
-			idle-cost-data = <
-				80 60 40
-			>;
-		};
-
-		CPU_COST_2: core-cost2 {
-			busy-cost-data = <
-				 691200 171
-				 768000 195
-				 864000 230
-				 940800 261
-				1017600 294
-				1113600 337
-				1190400 373
-				1286400 418
-				1363200 455
-				1459200 503
-				1536000 545
-				1632000 602
-				1728000 666
-				1824000 739
-				1900800 806
-				1977600 879
-				2054400 960
-			>;
-			idle-cost-data = <
-				110 90 70
-			>;
-		};
-
-		CLUSTER_COST_0: cluster-cost0 {
-			busy-cost-data = <
-				 300000  3
-				 403200  4
-				 480000  4
-				 576000  4
-				 672000  5
-				 768000  5
-				 864000  6
-				 979200  7
-				1075200  8
-				1171200  9
-				1267200 10
-			>;
-			idle-cost-data = <
-				3 2 1
-			>;
-		};
-
-		CLUSTER_COST_1: cluster-cost1 {
-			busy-cost-data = <
-				 576000  25
-				 672000  26
-				 768000  27
-				 864000  28
-				 960000  29
-				1056000  30
-				1152000  32
-				1248000  34
-				1344000  37
-				1420800  40
-				1497600  45
-				1593600  50
-				1689600  57
-				1785600  64
-				1862400  74
-				1939200  90
-				2016000 106
-
-			>;
-			idle-cost-data = <
-				3 2 1
-			>;
-		};
-
-		CLUSTER_COST_2: cluster-cost2 {
-			busy-cost-data = <
-				 691200  30
-				 768000  33
-				 864000  36
-				 940800  39
-				1017600  42
-				1113600  46
-				1190400  49
-				1286400  55
-				1363200  67
-				1459200  77
-				1536000  87
-				1632000 100
-				1728000 110
-				1824000 120
-				1900800 128
-				1977600 135
-				2054400 140
-			>;
-			idle-cost-data = <
-				3 2 1
-			>;
-		};
-	}; /* energy-costs */
 
 	psci {
 		compatible = "arm,psci-1.0";
