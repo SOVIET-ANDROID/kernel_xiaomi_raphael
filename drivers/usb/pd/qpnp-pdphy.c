@@ -609,7 +609,7 @@ void pd_phy_close(void)
 }
 EXPORT_SYMBOL(pd_phy_close);
 
-static irqreturn_t pdphy_msg_tx_irq_thread(int irq, void *data)
+static irqreturn_t pdphy_msg_tx_irq(int irq, void *data)
 {
 	struct usb_pdphy *pdphy = data;
 
@@ -636,7 +636,7 @@ static irqreturn_t pdphy_msg_tx_irq_thread(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t pdphy_msg_rx_discarded_irq_thread(int irq, void *data)
+static irqreturn_t pdphy_msg_rx_discarded_irq(int irq, void *data)
 {
 	struct usb_pdphy *pdphy = data;
 
@@ -706,7 +706,7 @@ static int pd_phy_bist_mode(u8 bist_mode)
 			BIST_MODE_MASK | BIST_ENABLE, bist_mode | BIST_ENABLE);
 }
 
-static irqreturn_t pdphy_msg_rx_irq_thread(int irq, void *data)
+static irqreturn_t pdphy_msg_rx_irq(int irq, void *data)
 {
 	u8 size, rx_status, frame_type;
 	u8 buf[32];
@@ -841,33 +841,33 @@ static int pdphy_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = pdphy_request_irq(pdphy, pdev->dev.of_node,
-		&pdphy->msg_tx_irq, "msg-tx", NULL,
-		pdphy_msg_tx_irq_thread, (IRQF_TRIGGER_RISING | IRQF_ONESHOT));
+		&pdphy->msg_tx_irq, "msg-tx", pdphy_msg_tx_irq,
+		NULL, (IRQF_TRIGGER_RISING | IRQF_ONESHOT));
 	if (ret < 0)
 		return ret;
 
 	ret = pdphy_request_irq(pdphy, pdev->dev.of_node,
-		&pdphy->msg_rx_irq, "msg-rx", NULL,
-		pdphy_msg_rx_irq_thread, (IRQF_TRIGGER_RISING | IRQF_ONESHOT));
+		&pdphy->msg_rx_irq, "msg-rx", pdphy_msg_rx_irq,
+		NULL, (IRQF_TRIGGER_RISING | IRQF_ONESHOT));
 	if (ret < 0)
 		return ret;
 
 	ret = pdphy_request_irq(pdphy, pdev->dev.of_node,
-		&pdphy->msg_tx_failed_irq, "msg-tx-failed", NULL,
-		pdphy_msg_tx_irq_thread, (IRQF_TRIGGER_RISING | IRQF_ONESHOT));
+		&pdphy->msg_tx_failed_irq, "msg-tx-failed", pdphy_msg_tx_irq,
+		NULL, (IRQF_TRIGGER_RISING | IRQF_ONESHOT));
 	if (ret < 0)
 		return ret;
 
 	ret = pdphy_request_irq(pdphy, pdev->dev.of_node,
 		&pdphy->msg_tx_discarded_irq, "msg-tx-discarded",
-		NULL, pdphy_msg_tx_irq_thread,
+		pdphy_msg_tx_irq, NULL,
 		(IRQF_TRIGGER_RISING | IRQF_ONESHOT));
 	if (ret < 0)
 		return ret;
 
 	ret = pdphy_request_irq(pdphy, pdev->dev.of_node,
 		&pdphy->msg_rx_discarded_irq, "msg-rx-discarded",
-		NULL, pdphy_msg_rx_discarded_irq_thread,
+		pdphy_msg_rx_discarded_irq, NULL,
 		(IRQF_TRIGGER_RISING | IRQF_ONESHOT));
 	if (ret < 0)
 		return ret;
