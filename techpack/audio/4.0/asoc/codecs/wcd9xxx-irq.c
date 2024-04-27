@@ -593,7 +593,7 @@ int wcd9xxx_irq_init(struct wcd9xxx_core_resource *wcd9xxx_res)
 			wcd9xxx_res->irq_masks_cur[i]);
 	}
 
-	ret = request_threaded_irq(wcd9xxx_res->irq, wcd9xxx_irq_thread, NULL,
+	ret = request_threaded_irq(wcd9xxx_res->irq, NULL, wcd9xxx_irq_thread,
 				   IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
 				   "wcd9xxx", wcd9xxx_res);
 	if (ret != 0)
@@ -635,7 +635,7 @@ int wcd9xxx_request_irq(struct wcd9xxx_core_resource *wcd9xxx_res,
 
 	virq = phyirq_to_virq(wcd9xxx_res, irq);
 
-	return request_threaded_irq(virq, handler, NULL, IRQF_TRIGGER_RISING,
+	return request_threaded_irq(virq, NULL, handler, IRQF_TRIGGER_RISING,
 				    name, data);
 }
 EXPORT_SYMBOL(wcd9xxx_request_irq);
