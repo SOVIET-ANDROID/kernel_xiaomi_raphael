@@ -184,7 +184,7 @@ struct dsi_ctrl_state_info {
  * @cmd_frame_done:        Completion signal for DSI_CMD_FRAME_DONE interrupt.
  */
 struct dsi_ctrl_interrupts {
-	raw_spinlock_t irq_lock;
+	spinlock_t irq_lock;
 	int irq_num;
 	uint32_t irq_stat_mask;
 	int irq_stat_refcount[DSI_STATUS_INTERRUPT_COUNT];
