@@ -2442,8 +2442,7 @@ static int msm_geni_serial_startup(struct uart_port *uport)
 		enable_irq(uport->irq);
 
 	if (msm_port->wakeup_irq > 0) {
-		ret = request_threaded_irq(msm_port->wakeup_irq, NULL,
-				msm_geni_wakeup_isr,
+		ret = request_irq(msm_port->wakeup_irq, msm_geni_wakeup_isr,
 				IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 				"hs_uart_wakeup", uport);
 		if (unlikely(ret)) {
