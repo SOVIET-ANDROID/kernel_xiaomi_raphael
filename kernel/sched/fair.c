@@ -3557,7 +3557,7 @@ static inline void update_tg_load_avg(struct cfs_rq *cfs_rq, int force)
 }
 
 /*
- * Called within set_task_rq() right before setting a task's cpu. The
+ * Called within set_task_rq() right before setting a task's CPU. The
  * caller only guarantees p->pi_lock is held; no other assumptions,
  * including the state of rq->lock, should be made.
  */
@@ -3583,7 +3583,7 @@ void set_task_rq_fair(struct sched_entity *se,
 	p_last_update_time = cfs_rq_last_update_time(prev);
 	n_last_update_time = cfs_rq_last_update_time(next);
 
-	__update_load_avg_blocked_se(p_last_update_time, cpu_of(rq_of(prev)), se);
+	__update_load_avg_blocked_se(p_last_update_time, se);
 	se->avg.last_update_time = n_last_update_time;
 }
 
@@ -3885,11 +3885,10 @@ update_cfs_rq_load_avg(u64 now, struct cfs_rq *cfs_rq)
 		decayed = 1;
 	}
 
-	decayed |= __update_load_avg_cfs_rq(now, cpu_of(rq_of(cfs_rq)), cfs_rq);
+	decayed |= __update_load_avg_cfs_rq(now, cfs_rq);
 	u64_u32_store_copy(sa->last_update_time,
 			   cfs_rq->last_update_time_copy,
 			   sa->last_update_time);
-
 	return decayed;
 }
 
