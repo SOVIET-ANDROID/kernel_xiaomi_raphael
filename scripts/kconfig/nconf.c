@@ -791,7 +791,7 @@ again:
 		jump_key_char = 0;
 		res = get_relations_str(sym_arr, &head);
 		dres = show_scroll_win_ext(main_window,
-				"Search Results", str_get(&res),
+				"Search Results", (char *) str_get(&res),
 				&vscroll, &hscroll,
 				handle_search_keys, &data);
 		again = false;
