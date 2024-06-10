@@ -748,11 +748,8 @@ KBUILD_CFLAGS	+= $(call cc-disable-warning, attribute-alias)
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS   += -Os
 else
-KBUILD_CFLAGS   += -O2
-ifeq ($(cc-name),gcc)
-KBUILD_CFLAGS	+= -mcpu=cortex-a76.cortex-a55 -mtune=cortex-a76.cortex-a55
-endif
 ifeq ($(cc-name),clang)
+KBUILD_CFLAGS   += -O3
 #Enable fast FMA optimizations
 KBUILD_CFLAGS   += -ffp-contract=fast
 #Enable MLGO for register allocation.
@@ -777,6 +774,14 @@ ifdef CONFIG_LD_DEAD_CODE_DATA_ELIMINATION
 KBUILD_CFLAGS	+= -mllvm -polly-run-dce
 endif
 endif
+
+KBUILD_CFLAGS  += -mllvm -inline-threshold=1300
+KBUILD_CFLAGS  += -mllvm -inlinehint-threshold=2000
+KBUILD_CFLAGS  += -mllvm -unroll-threshold=900
+
+else
+KBUILD_CFLAGS   += -O2
+KBUILD_CFLAGS	+= -mcpu=cortex-a76.cortex-a55 -mtune=cortex-a76.cortex-a55
 endif
 endif
 
