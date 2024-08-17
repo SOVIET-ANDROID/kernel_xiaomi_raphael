@@ -17,7 +17,7 @@ DEFCONFIG="raphael_defconfig"
 # Kernel Details
 REV="R6.3"
 
-EDITION="BLACK"
+EDITION="DSP"
 VER="$EDITION"-"$REV"
 
 # Vars
