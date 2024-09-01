@@ -4113,7 +4113,7 @@ static inline unsigned long _task_util_est(struct task_struct *p)
 	return (max(ue.ewma, ue.enqueued) | UTIL_AVG_UNCHANGED);
 }
 
-static inline unsigned long task_util_est(struct task_struct *p)
+unsigned long task_util_est(struct task_struct *p)
 {
 #ifdef CONFIG_SCHED_WALT
 	if (likely(!walt_disabled && sysctl_sched_use_walt_task_util))
@@ -4132,7 +4132,7 @@ static inline unsigned long uclamp_task_util(struct task_struct *p)
 #else
 static inline unsigned long uclamp_task_util(struct task_struct *p)
 {
-	return boosted_task_util(p);
+	return task_util_est(p);
 }
 #endif
 
@@ -6875,19 +6875,23 @@ schedtune_margin(unsigned long signal, long boost, long capacity)
 	return margin;
 }
 
-static inline int
-schedtune_cpu_margin(unsigned long util, int cpu)
+inline long
+schedtune_cpu_margin_with(unsigned long util, int cpu, struct task_struct *p)
 {
-	int boost = schedtune_cpu_boost(cpu);
+	int boost = schedtune_cpu_boost_with(cpu, p);
+	long margin;
 
 	if (boost == 0)
-		return 0;
+		margin = 0;
+	else
+		margin = schedtune_margin(util, boost);
 
-	return schedtune_margin(util, boost, capacity_orig_of(cpu));
+	trace_sched_boost_cpu(cpu, util, margin);
+
+	return margin;
 }
 
-static inline long
-schedtune_task_margin(struct task_struct *task)
+long schedtune_task_margin(struct task_struct *task)
 {
 	int boost = schedtune_task_boost(task);
 	unsigned long util;
@@ -6904,49 +6908,13 @@ schedtune_task_margin(struct task_struct *task)
 
 #else /* CONFIG_SCHED_TUNE */
 
-static inline int
-schedtune_cpu_margin(unsigned long util, int cpu)
-{
-	return 0;
-}
-
-static inline int
-schedtune_task_margin(struct task_struct *task)
+inline long
+schedtune_cpu_margin_with(unsigned long util, int cpu, struct task_struct *p)
 {
 	return 0;
 }
 
 #endif /* CONFIG_SCHED_TUNE */
-
-unsigned long
-boosted_cpu_util(int cpu, struct sched_walt_cpu_load *walt_load)
-{
-	unsigned long util = cpu_util_freq(cpu, walt_load);
-	long margin = schedtune_cpu_margin(util, cpu);
-
-	trace_sched_boost_cpu(cpu, util, margin);
-
-	return util + margin;
-}
-
-static inline unsigned long
-boosted_task_util(struct task_struct *task)
-{
-#ifdef CONFIG_UCLAMP_TASK_GROUP
-	unsigned long util = task_util_est(task);
-	unsigned long util_min = uclamp_eff_value(task, UCLAMP_MIN);
-	unsigned long util_max = uclamp_eff_value(task, UCLAMP_MAX);
-
-	return clamp(util, util_min, util_max);
-#else
-	unsigned long util = task_util_est(task);
-	long margin = schedtune_task_margin(task);
-
-	trace_sched_boost_task(task, util, margin);
-
-	return util + margin;
-#endif
-}
 
 static unsigned long cpu_util_without(int cpu, struct task_struct *p);
 
@@ -7465,7 +7433,7 @@ static inline int select_idle_sibling_cstate_aware(struct task_struct *p, int pr
 					continue;
 
 				/* figure out if the task can fit here at all */
-				new_usage = boosted_task_util(p);
+				new_usage = uclamp_task(p);
 				capacity_orig = capacity_orig_of(i);
 
 				if (new_usage > capacity_orig)
@@ -7627,7 +7595,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 				   bool prefer_idle,
 				   struct find_best_target_env *fbt_env)
 {
-	unsigned long min_util = boosted_task_util(p);
+	unsigned long min_util = uclamp_task(p);
 	unsigned long target_capacity = ULONG_MAX;
 	unsigned long min_wake_util = ULONG_MAX;
 	unsigned long target_max_spare_cap = 0;
@@ -7722,10 +7690,6 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 				continue;
 
 			if (sched_cpu_high_irqload(i))
-				continue;
-
-			/* Skip CPUs which do not fit task requirements */
-			if (capacity_of(i) < boosted_task_util(p))
 				continue;
 
 			/*
@@ -8280,7 +8244,7 @@ static inline struct energy_env *get_eenv(struct task_struct *p, int prev_cpu)
 	 * util for group utilization calculations
 	 */
 	eenv->util_delta = task_util_est(p);
-	eenv->util_delta_boosted = boosted_task_util(p);
+	eenv->util_delta_boosted = uclamp_task(p);
 
 	cpumask_and(&cpumask_possible_cpus, p->cpus_ptr, cpu_online_mask);
 	eenv->max_cpu_count = cpumask_weight(&cpumask_possible_cpus);
