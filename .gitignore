@@ -128,8 +128,3 @@ kernel/configs/android-*.cfg
 
 # Object directory
 out/
-
-#
-#Ignoring Android.bp link file
-#
-Android.bp
