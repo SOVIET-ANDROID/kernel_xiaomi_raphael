@@ -15,7 +15,7 @@ export THINLTO_CACHE=~/ltocache/
 DEFCONFIG="raphael_defconfig"
 
 # Kernel Details
-REV="R6.5"
+REV="R6.6"
 
 EDITION="BLACK"
 VER="$EDITION"-"$REV"

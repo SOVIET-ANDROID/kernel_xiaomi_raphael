@@ -22,28 +22,30 @@
 #include "dialog.h"
 
 static void back_lines(int n);
-static void print_page(WINDOW *win, int height, int width, update_text_fn
-		       update_text, void *data);
+static void print_page(WINDOW *win, int height, int width);
 static void print_line(WINDOW *win, int row, int width);
 static char *get_line(void);
 static void print_position(WINDOW * win);
 
 static int hscroll;
 static int begin_reached, end_reached, page_length;
-static char *buf;
-static char *page;
+static const char *buf, *page;
+static size_t start, end;
 
 /*
  * refresh window content
  */
 static void refresh_text_box(WINDOW *dialog, WINDOW *box, int boxh, int boxw,
-			     int cur_y, int cur_x, update_text_fn update_text,
-			     void *data)
+			     int cur_y, int cur_x)
 {
-	print_page(box, boxh, boxw, update_text, data);
+
+	start = page - buf;
+	print_page(box, boxh, boxw);
 	print_position(dialog);
 	wmove(dialog, cur_y, cur_x);	/* Restore cursor position */
 	wrefresh(dialog);
+
+	end = page - buf;
 }
 
 
@@ -51,11 +53,10 @@ static void refresh_text_box(WINDOW *dialog, WINDOW *box, int boxh, int boxw,
  * Display text from a file in a dialog box.
  *
  * keys is a null-terminated array
- * update_text() may not add or remove any '\n' or '\0' in tbuf
  */
 int dialog_textbox(const char *title, char *tbuf, int initial_height,
-		   int initial_width, int *keys, int *_vscroll, int *_hscroll,
-		   update_text_fn update_text, void *data)
+		   int initial_width, int *_vscroll, int *_hscroll,
+		   int (*extra_key_cb)(int, size_t, size_t, void *), void *data)
 {
 	int i, x, y, cur_x, cur_y, key = 0;
 	int height, width, boxh, boxw;
@@ -135,8 +136,7 @@ do_resize:
 
 	/* Print first page of text */
 	attr_clear(box, boxh, boxw, dlg.dialog.atr);
-	refresh_text_box(dialog, box, boxh, boxw, cur_y, cur_x, update_text,
-			 data);
+	refresh_text_box(dialog, box, boxh, boxw, cur_y, cur_x);
 
 	while (!done) {
 		key = wgetch(dialog);
@@ -155,8 +155,7 @@ do_resize:
 				begin_reached = 1;
 				page = buf;
 				refresh_text_box(dialog, box, boxh, boxw,
-						 cur_y, cur_x, update_text,
-						 data);
+						 cur_y, cur_x);
 			}
 			break;
 		case 'G':	/* Last page */
@@ -167,7 +166,7 @@ do_resize:
 			page = buf + strlen(buf);
 			back_lines(boxh);
 			refresh_text_box(dialog, box, boxh, boxw, cur_y,
-					 cur_x, update_text, data);
+					 cur_x);
 			break;
 		case 'K':	/* Previous line */
 		case 'k':
@@ -177,7 +176,7 @@ do_resize:
 
 			back_lines(page_length + 1);
 			refresh_text_box(dialog, box, boxh, boxw, cur_y,
-					 cur_x, update_text, data);
+					 cur_x);
 			break;
 		case 'B':	/* Previous page */
 		case 'b':
@@ -187,7 +186,7 @@ do_resize:
 				break;
 			back_lines(page_length + boxh);
 			refresh_text_box(dialog, box, boxh, boxw, cur_y,
-					 cur_x, update_text, data);
+					 cur_x);
 			break;
 		case 'J':	/* Next line */
 		case 'j':
@@ -197,7 +196,7 @@ do_resize:
 
 			back_lines(page_length - 1);
 			refresh_text_box(dialog, box, boxh, boxw, cur_y,
-					 cur_x, update_text, data);
+					 cur_x);
 			break;
 		case KEY_NPAGE:	/* Next page */
 		case ' ':
@@ -207,7 +206,7 @@ do_resize:
 
 			begin_reached = 0;
 			refresh_text_box(dialog, box, boxh, boxw, cur_y,
-					 cur_x, update_text, data);
+					 cur_x);
 			break;
 		case '0':	/* Beginning of line */
 		case 'H':	/* Scroll left */
@@ -223,7 +222,7 @@ do_resize:
 			/* Reprint current page to scroll horizontally */
 			back_lines(page_length);
 			refresh_text_box(dialog, box, boxh, boxw, cur_y,
-					 cur_x, update_text, data);
+					 cur_x);
 			break;
 		case 'L':	/* Scroll right */
 		case 'l':
@@ -234,7 +233,7 @@ do_resize:
 			/* Reprint current page to scroll horizontally */
 			back_lines(page_length);
 			refresh_text_box(dialog, box, boxh, boxw, cur_y,
-					 cur_x, update_text, data);
+					 cur_x);
 			break;
 		case KEY_ESC:
 			if (on_key_esc(dialog) == KEY_ESC)
@@ -247,11 +246,9 @@ do_resize:
 			on_key_resize();
 			goto do_resize;
 		default:
-			for (i = 0; keys[i]; i++) {
-				if (key == keys[i]) {
-					done = true;
-					break;
-				}
+			if (extra_key_cb && extra_key_cb(key, start, end, data)) {
+				done = true;
+				break;
 			}
 		}
 	}
@@ -309,20 +306,9 @@ static void back_lines(int n)
 /*
  * Print a new page of text.
  */
-static void print_page(WINDOW *win, int height, int width, update_text_fn
-		       update_text, void *data)
+static void print_page(WINDOW *win, int height, int width)
 {
 	int i, passed_end = 0;
-
-	if (update_text) {
-		char *end;
-
-		for (i = 0; i < height; i++)
-			get_line();
-		end = page;
-		back_lines(height);
-		update_text(buf, page - buf, end - buf, data);
-	}
 
 	page_length = 0;
 	for (i = 0; i < height; i++) {

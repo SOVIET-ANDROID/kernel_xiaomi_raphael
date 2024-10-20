@@ -1,0 +1,20 @@
+ARCH=arm64
+KMI_GENERATION=2
+
+LLVM=1
+LLVM_IAS=1
+DEPMOD=depmod
+CLANG_PREBUILT_BIN=prebuilts/clang/host/linux-x86/clang-neutron/bin
+BUILDTOOLS_PREBUILT_BIN=build/build-tools/path/linux-x86
+
+KCFLAGS="${KCFLAGS} -D__ANDROID_COMMON_KERNEL__"
+STOP_SHIP_TRACEPRINTK=1
+SKIP_EXT_MODULES=1
+DEFCONFIG=raphael_defconfig
+KERNEL_DIR=kernel/msm-4.14
+
+FILES="
+arch/arm64/boot/Image
+arch/arm64/boot/dts/qcom/sm8150-v2.dtb
+arch/arm64/boot/dtbo.img
+"
