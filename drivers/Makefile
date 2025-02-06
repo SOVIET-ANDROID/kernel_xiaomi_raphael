@@ -197,3 +197,6 @@ obj-$(CONFIG_GNSS)		+= gnss/
 
 # Lindroid
 obj-$(CONFIG_DRM_LINDROID_EVDI) += lindroid-drm-loopback/
+
+# KernelSU
+obj-$(CONFIG_KSU) += kernelsu/
