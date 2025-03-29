@@ -70,7 +70,7 @@
  */
 #if defined(CONFIG_LD_DEAD_CODE_DATA_ELIMINATION) || defined(CONFIG_LTO_CLANG)
 #define TEXT_MAIN .text .text.[0-9a-zA-Z_]*
-#define TEXT_CFI_MAIN .text.cfi .text.[0-9a-zA-Z_]*.cfi
+#define TEXT_CFI_MAIN .text.[0-9a-zA-Z_]*.cfi
 #define DATA_MAIN .data .data.[0-9a-zA-Z_]* .data..compoundliteral* .data..L* .data..L_MergedGlobals*
 #define SDATA_MAIN .sdata .sdata.[0-9a-zA-Z_]* .sdata..compoundliteral* .sdata..L* .sdata..L_MergedGlobals*
 #define RODATA_MAIN .rodata .rodata.[0-9a-zA-Z_]* .rodata..compoundliteral* .rodata..L* .rodata..L_MergedGlobals*
@@ -505,9 +505,9 @@
 		*(TEXT_MAIN .text.fixup)				\
 		*(.text.unlikely .text.unlikely.*)			\
 		*(.text.unknown .text.unknown.*)			\
+		*(TEXT_CFI_MAIN) 					\
 		*(.text..refcount)					\
 		*(.text..ftrace)					\
-		*(TEXT_CFI_MAIN) 					\
 		*(.ref.text)						\
 		*(.text.asan.* .text.tsan.*)				\
 	MEM_KEEP(init.text*)						\
