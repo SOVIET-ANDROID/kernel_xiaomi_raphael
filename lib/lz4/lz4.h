@@ -39,10 +39,6 @@ extern "C" {
 #ifndef LZ4_H_2983827168210
 #define LZ4_H_2983827168210
 
-/* --- Dependency --- */
-#include <stddef.h>   /* size_t */
-
-
 /**
   Introduction
 
@@ -73,6 +69,12 @@ extern "C" {
   The `lz4` CLI can only manage frames.
 */
 
+#include <linux/compiler.h>
+#include <linux/export.h>
+#include <linux/string.h>
+
+#define LZ4_FORCE_INLINE static inline __attribute__((always_inline))
+
 /*^***************************************************************
 *  Export parameters
 *****************************************************************/
@@ -96,6 +98,22 @@ extern "C" {
 #else
 #  define LZ4LIB_API LZ4LIB_VISIBILITY
 #endif
+
+/*-************************************
+*  Reading and writing into memory
+**************************************/
+
+/**
+ * LZ4 relies on memcpy with a constant size being inlined. In freestanding
+ * environments, the compiler can't assume the implementation of memcpy() is
+ * standard compliant, so it can't apply its specialized memcpy() inlining
+ * logic. When possible, use __builtin_memcpy() to tell the compiler to analyze
+ * memcpy() as if it were standard compliant, so it can inline it in freestanding
+ * environments. This is needed when decompressing the Linux Kernel, for example.
+ */
+#define LZ4_memcpy(dst, src, size) __builtin_memcpy(dst, src, size)
+#define LZ4_memset(dst, src, size) __builtin_memset(dst, src, size)
+#define LZ4_memmove(dst, src, size) __builtin_memmove(dst, src, size)
 
 /*! LZ4_FREESTANDING :
  *  When this macro is set to 1, it enables "freestanding mode" that is
@@ -188,7 +206,7 @@ LZ4LIB_API const char* LZ4_versionString (void);   /**< library version string; 
  *                or 0 if compression fails
  * Note : This function is protected against buffer overflow scenarios (never writes outside 'dst' buffer, nor read outside 'source' buffer).
  */
-LZ4LIB_API int LZ4_compress_default(const char* src, char* dst, int srcSize, int dstCapacity);
+LZ4LIB_API int LZ4_compress_default(const char* src, char* dst, int srcSize, int dstCapacity, void *wrkmem);
 
 /*! LZ4_decompress_safe() :
  * @compressedSize : is the exact complete size of the compressed block.
@@ -696,18 +714,12 @@ int LZ4_compress_destSize_extState(void* state, const char* src, char* dst, int*
 #define LZ4_HASHTABLESIZE (1 << LZ4_MEMORY_USAGE)
 #define LZ4_HASH_SIZE_U32 (1 << LZ4_HASHLOG)       /* required as macro for static allocation */
 
-#if defined(__cplusplus) || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */)
-# include <stdint.h>
-  typedef  int8_t  LZ4_i8;
-  typedef uint8_t  LZ4_byte;
-  typedef uint16_t LZ4_u16;
-  typedef uint32_t LZ4_u32;
-#else
-  typedef   signed char  LZ4_i8;
-  typedef unsigned char  LZ4_byte;
-  typedef unsigned short LZ4_u16;
-  typedef unsigned int   LZ4_u32;
-#endif
+#include <linux/types.h>
+#include <linux/limits.h>
+typedef  int8_t  LZ4_i8;
+typedef uint8_t  LZ4_byte;
+typedef uint16_t LZ4_u16;
+typedef uint32_t LZ4_u32;
 
 /*! LZ4_stream_t :
  *  Never ever use below internal definitions directly !

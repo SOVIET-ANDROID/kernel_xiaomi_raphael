@@ -173,13 +173,6 @@
 #  define expect(expr,value)    (expr)
 #endif
 
-#ifndef likely
-#define likely(expr)     expect((expr) != 0, 1)
-#endif
-#ifndef unlikely
-#define unlikely(expr)   expect((expr) != 0, 0)
-#endif
-
 /* Should the alignment test prove unreliable, for some reason,
  * it can be disabled by setting LZ4_ALIGN_TEST to 0 */
 #ifndef LZ4_ALIGN_TEST  /* can be externally provided */
@@ -191,44 +184,8 @@
 *  Memory routines
 **************************************/
 
-/*! LZ4_STATIC_LINKING_ONLY_DISABLE_MEMORY_ALLOCATION :
- *  Disable relatively high-level LZ4/HC functions that use dynamic memory
- *  allocation functions (malloc(), calloc(), free()).
- *
- *  Note that this is a compile-time switch. And since it disables
- *  public/stable LZ4 v1 API functions, we don't recommend using this
- *  symbol to generate a library for distribution.
- *
- *  The following public functions are removed when this symbol is defined.
- *  - lz4   : LZ4_createStream, LZ4_freeStream,
- *            LZ4_createStreamDecode, LZ4_freeStreamDecode, LZ4_create (deprecated)
- *  - lz4hc : LZ4_createStreamHC, LZ4_freeStreamHC,
- *            LZ4_createHC (deprecated), LZ4_freeHC  (deprecated)
- *  - lz4frame, lz4file : All LZ4F_* functions
- */
-#if defined(LZ4_STATIC_LINKING_ONLY_DISABLE_MEMORY_ALLOCATION)
-#  define ALLOC(s)          lz4_error_memory_allocation_is_disabled
-#  define ALLOC_AND_ZERO(s) lz4_error_memory_allocation_is_disabled
-#  define FREEMEM(p)        lz4_error_memory_allocation_is_disabled
-#elif defined(LZ4_USER_MEMORY_FUNCTIONS)
-/* memory management functions can be customized by user project.
- * Below functions must exist somewhere in the Project
- * and be available at link time */
-void* LZ4_malloc(size_t s);
-void* LZ4_calloc(size_t n, size_t s);
-void  LZ4_free(void* p);
-# define ALLOC(s)          LZ4_malloc(s)
-# define ALLOC_AND_ZERO(s) LZ4_calloc(1,s)
-# define FREEMEM(p)        LZ4_free(p)
-#else
-# include <stdlib.h>   /* malloc, calloc, free */
-# define ALLOC(s)          malloc(s)
-# define ALLOC_AND_ZERO(s) calloc(1,s)
-# define FREEMEM(p)        free(p)
-#endif
-
 #if ! LZ4_FREESTANDING
-#  include <string.h>   /* memset, memcpy */
+#  include <linux/string.h>   /* memset, memcpy */
 #endif
 #if !defined(LZ4_memset)
 #  define LZ4_memset(p,v,s) memset((p),(v),(s))
@@ -298,26 +255,13 @@ static int LZ4_isAligned(const void* ptr, size_t alignment)
 /*-************************************
 *  Types
 **************************************/
-#include <limits.h>
-#if defined(__cplusplus) || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */)
-# include <stdint.h>
-  typedef  uint8_t BYTE;
-  typedef uint16_t U16;
-  typedef uint32_t U32;
-  typedef  int32_t S32;
-  typedef uint64_t U64;
-  typedef uintptr_t uptrval;
-#else
-# if UINT_MAX != 4294967295UL
-#   error "LZ4 code (when not C++ or C99) assumes that sizeof(int) == 4"
-# endif
-  typedef unsigned char       BYTE;
-  typedef unsigned short      U16;
-  typedef unsigned int        U32;
-  typedef   signed int        S32;
-  typedef unsigned long long  U64;
-  typedef size_t              uptrval;   /* generally true, except OpenVMS-64 */
-#endif
+#include <linux/types.h>
+typedef  uint8_t BYTE;
+typedef uint16_t U16;
+typedef uint32_t U32;
+typedef  int32_t S32;
+typedef uint64_t U64;
+typedef uintptr_t uptrval;
 
 #if defined(__x86_64__)
   typedef U64    reg_t;   /* 64-bits in x32 mode */
@@ -331,34 +275,6 @@ typedef enum {
     fillOutput = 2
 } limitedOutput_directive;
 
-
-/*-************************************
-*  Reading and writing into memory
-**************************************/
-
-/**
- * LZ4 relies on memcpy with a constant size being inlined. In freestanding
- * environments, the compiler can't assume the implementation of memcpy() is
- * standard compliant, so it can't apply its specialized memcpy() inlining
- * logic. When possible, use __builtin_memcpy() to tell the compiler to analyze
- * memcpy() as if it were standard compliant, so it can inline it in freestanding
- * environments. This is needed when decompressing the Linux Kernel, for example.
- */
-#if !defined(LZ4_memcpy)
-#  if defined(__GNUC__) && (__GNUC__ >= 4)
-#    define LZ4_memcpy(dst, src, size) __builtin_memcpy(dst, src, size)
-#  else
-#    define LZ4_memcpy(dst, src, size) memcpy(dst, src, size)
-#  endif
-#endif
-
-#if !defined(LZ4_memmove)
-#  if defined(__GNUC__) && (__GNUC__ >= 4)
-#    define LZ4_memmove __builtin_memmove
-#  else
-#    define LZ4_memmove memmove
-#  endif
-#endif
 
 static unsigned LZ4_isLittleEndian(void)
 {
@@ -1469,10 +1385,11 @@ int LZ4_compress_fast(const char* src, char* dest, int srcSize, int dstCapacity,
 }
 
 
-int LZ4_compress_default(const char* src, char* dst, int srcSize, int dstCapacity)
+int LZ4_compress_default(const char* src, char* dst, int srcSize, int dstCapacity, void *wrkmem)
 {
-    return LZ4_compress_fast(src, dst, srcSize, dstCapacity, 1);
+    return LZ4_compress_fast_extState(wrkmem, src, dst, srcSize, dstCapacity, 1);
 }
+EXPORT_SYMBOL(LZ4_compress_default);
 
 
 /* Note!: This function leaves the stream in an unclean/broken state!
@@ -1649,6 +1566,7 @@ int LZ4_loadDict(LZ4_stream_t* LZ4_dict, const char* dictionary, int dictSize)
 {
     return LZ4_loadDict_internal(LZ4_dict, dictionary, dictSize, _ld_fast);
 }
+EXPORT_SYMBOL(LZ4_loadDict);
 
 int LZ4_loadDictSlow(LZ4_stream_t* LZ4_dict, const char* dictionary, int dictSize)
 {
@@ -1832,6 +1750,7 @@ int LZ4_saveDict (LZ4_stream_t* LZ4_dict, char* safeBuffer, int dictSize)
 
     return dictSize;
 }
+EXPORT_SYMBOL(LZ4_saveDict);
 
 
 
@@ -2754,36 +2673,6 @@ int LZ4_decompress_fast_usingDict(const char* source, char* dest, int originalSi
                         (size_t)dictSize, NULL, 0);
     assert(dictSize >= 0);
     return LZ4_decompress_fast_extDict(source, dest, originalSize, dictStart, (size_t)dictSize);
-}
-
-
-/*=*************************************************
-*  Obsolete Functions
-***************************************************/
-/* obsolete compression functions */
-int LZ4_compress_limitedOutput(const char* source, char* dest, int inputSize, int maxOutputSize)
-{
-    return LZ4_compress_default(source, dest, inputSize, maxOutputSize);
-}
-int LZ4_compress(const char* src, char* dest, int srcSize)
-{
-    return LZ4_compress_default(src, dest, srcSize, LZ4_compressBound(srcSize));
-}
-int LZ4_compress_limitedOutput_withState (void* state, const char* src, char* dst, int srcSize, int dstSize)
-{
-    return LZ4_compress_fast_extState(state, src, dst, srcSize, dstSize, 1);
-}
-int LZ4_compress_withState (void* state, const char* src, char* dst, int srcSize)
-{
-    return LZ4_compress_fast_extState(state, src, dst, srcSize, LZ4_compressBound(srcSize), 1);
-}
-int LZ4_compress_limitedOutput_continue (LZ4_stream_t* LZ4_stream, const char* src, char* dst, int srcSize, int dstCapacity)
-{
-    return LZ4_compress_fast_continue(LZ4_stream, src, dst, srcSize, dstCapacity, 1);
-}
-int LZ4_compress_continue (LZ4_stream_t* LZ4_stream, const char* source, char* dest, int inputSize)
-{
-    return LZ4_compress_fast_continue(LZ4_stream, source, dest, inputSize, LZ4_compressBound(inputSize), 1);
 }
 
 /*

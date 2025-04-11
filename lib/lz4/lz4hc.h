@@ -63,7 +63,7 @@ extern "C" {
  * @return : the number of bytes written into 'dst'
  *           or 0 if compression fails.
  */
-LZ4LIB_API int LZ4_compress_HC (const char* src, char* dst, int srcSize, int dstCapacity, int compressionLevel);
+LZ4LIB_API int LZ4_compress_HC (const char* src, char* dst, int srcSize, int dstCapacity, int compressionLevel, void *wrkmem);
 
 
 /* Note :
