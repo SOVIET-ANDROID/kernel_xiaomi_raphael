@@ -1366,23 +1366,11 @@ int LZ4_compress_fast_extState_fastReset(void* state, const char* src, char* dst
 }
 
 
-int LZ4_compress_fast(const char* src, char* dest, int srcSize, int dstCapacity, int acceleration)
+int LZ4_compress_fast(const char* src, char* dest, int srcSize, int dstCapacity, int acceleration, void *wrkmem)
 {
-    int result;
-#if (LZ4_HEAPMODE)
-    LZ4_stream_t* const ctxPtr = (LZ4_stream_t*)ALLOC(sizeof(LZ4_stream_t));   /* malloc-calloc always properly aligned */
-    if (ctxPtr == NULL) return 0;
-#else
-    LZ4_stream_t ctx;
-    LZ4_stream_t* const ctxPtr = &ctx;
-#endif
-    result = LZ4_compress_fast_extState(ctxPtr, src, dest, srcSize, dstCapacity, acceleration);
-
-#if (LZ4_HEAPMODE)
-    FREEMEM(ctxPtr);
-#endif
-    return result;
+    return LZ4_compress_fast_extState(wrkmem, src, dest, srcSize, dstCapacity, acceleration);
 }
+EXPORT_SYMBOL(LZ4_compress_fast);
 
 
 int LZ4_compress_default(const char* src, char* dst, int srcSize, int dstCapacity, void *wrkmem)
