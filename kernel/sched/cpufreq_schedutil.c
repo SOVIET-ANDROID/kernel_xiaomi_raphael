@@ -112,6 +112,9 @@ static bool sugov_should_update_freq(struct sugov_policy *sg_policy, u64 time)
 		smp_mb();
 
 		return true;
+	} else if (sg_policy->need_freq_update) {
+		/* ignore_dl_rate_limit() wants a new frequency to be found. */
+		return true;
 	}
 
 	/* If the last frequency wasn't set yet then we can still amend it */
@@ -520,7 +523,7 @@ static unsigned long sugov_iowait_apply(struct sugov_cpu *sg_cpu, u64 time,
 static inline void ignore_dl_rate_limit(struct sugov_cpu *sg_cpu, struct sugov_policy *sg_policy)
 {
 	if (cpu_bw_dl(cpu_rq(sg_cpu->cpu)) > sg_cpu->bw_min)
-		WRITE_ONCE(sg_policy->limits_changed, true);
+		sg_policy->need_freq_update = true;
 }
 
 static void sugov_update_single(struct update_util_data *hook, u64 time,
