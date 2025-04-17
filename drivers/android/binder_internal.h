@@ -158,6 +158,10 @@ struct binder_work {
 		BINDER_WORK_DEAD_BINDER,
 		BINDER_WORK_DEAD_BINDER_AND_CLEAR,
 		BINDER_WORK_CLEAR_DEATH_NOTIFICATION,
+#ifndef __GENKSYMS__
+		BINDER_WORK_FROZEN_BINDER,
+		BINDER_WORK_CLEAR_FREEZE_NOTIFICATION,
+#endif
 	} type;
 };
 
@@ -279,6 +283,14 @@ struct binder_ref_death {
 	binder_uintptr_t cookie;
 };
 
+struct binder_ref_freeze {
+	struct binder_work work;
+	binder_uintptr_t cookie;
+	bool is_frozen:1;
+	bool sent:1;
+	bool resend:1;
+};
+
 /**
  * struct binder_ref_data - binder_ref counts and id
  * @debug_id:        unique ID for the ref
@@ -311,6 +323,8 @@ struct binder_ref_data {
  *               @node indicates the node must be freed
  * @death:       pointer to death notification (ref_death) if requested
  *               (protected by @node->lock)
+ * @freeze:      pointer to freeze notification (ref_freeze) if requested
+ *               (protected by @node->lock)
  *
  * Structure to track references from procA to target node (on procB). This
  * structure is unsafe to access without holding @proc->outer_lock.
@@ -327,6 +341,7 @@ struct binder_ref {
 	struct binder_proc *proc;
 	struct binder_node *node;
 	struct binder_ref_death *death;
+	struct binder_ref_freeze *freeze;
 };
 
 /**
@@ -461,10 +476,24 @@ struct binder_proc {
 	bool oneway_spam_detection_enabled;
 };
 
+/**
+ * struct binder_proc_wrap - wrapper to preserve KMI in binder_proc
+ * @proc:                    binder_proc being wrapped
+ * @lock:                    protects @proc->alloc fields
+ * @delivered_freeze:        list of delivered freeze notification
+ *                           (protected by @inner_lock)
+ */
 struct binder_proc_wrap {
 	struct binder_proc proc;
 	spinlock_t lock;
+	struct list_head delivered_freeze;
 };
+
+static inline
+struct binder_proc_wrap *proc_wrapper(struct binder_proc *proc)
+{
+	return container_of(proc, struct binder_proc_wrap, proc);
+}
 
 static inline struct binder_proc *
 binder_proc_entry(struct binder_alloc *alloc)
@@ -473,15 +502,9 @@ binder_proc_entry(struct binder_alloc *alloc)
 }
 
 static inline struct binder_proc_wrap *
-binder_proc_wrap_entry(struct binder_proc *proc)
-{
-	return container_of(proc, struct binder_proc_wrap, proc);
-}
-
-static inline struct binder_proc_wrap *
 binder_alloc_to_proc_wrap(struct binder_alloc *alloc)
 {
-	return binder_proc_wrap_entry(binder_proc_entry(alloc));
+	return proc_wrapper(binder_proc_entry(alloc));
 }
 
 static inline void binder_alloc_lock_init(struct binder_alloc *alloc)
@@ -631,6 +654,8 @@ struct binder_transaction {
 	 * during thread teardown
 	 */
 	spinlock_t lock;
+	ANDROID_VENDOR_DATA(1);
+	ANDROID_OEM_DATA_ARRAY(1, 2);
 };
 
 /**
