@@ -31,17 +31,12 @@ jobs:
 
       - name: Deploy Clang with AntMan
         run: |
-          mkdir -p $HOME/neutron-clang
-          cd $HOME/neutron-clang
-          curl -LO "https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman"
-          chmod +x antman
-          ./antman -S
-          ./antman --patch=glibc
+          git clone https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r547379.git $HOME/r547379
         shell: bash
 
       - name: Build the kernel with `ccache`
         run: |
-          export CLANG_PATH=$HOME/neutron-clang/bin
+          export CLANG_PATH=$HOME/r547379/bin
           export PATH=${CLANG_PATH}:${PATH}
           
           # Use ccache explicitly
