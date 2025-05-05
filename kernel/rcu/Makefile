@@ -3,8 +3,6 @@
 # and is generally not a function of system call inputs.
 KCOV_INSTRUMENT := n
 
-ccflags-y += -Ofast
-
 obj-y += update.o sync.o
 obj-$(CONFIG_TREE_SRCU) += srcutree.o
 obj-$(CONFIG_TINY_SRCU) += srcutiny.o
