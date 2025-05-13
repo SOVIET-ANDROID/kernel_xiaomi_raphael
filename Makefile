@@ -723,10 +723,6 @@ endif
 LLVM_AR		:= llvm-ar
 LLVM_NM		:= llvm-nm
 export LLVM_AR LLVM_NM
-# Set O3 optimization level for LTO with most linkers
-LDFLAGS		+= -O3
-LDFLAGS		+= --plugin-opt=O3
-LDFLAGS		+= --lto-O3
 endif
 
 
@@ -750,13 +746,13 @@ KBUILD_CFLAGS   += -Os
 else
 ifeq ($(cc-name),clang)
 KBUILD_CFLAGS   += -O3
+KBUILD_CFLAGS	+= -march=armv8.2-a+lse+fp16+dotprod -mcpu=cortex-a76+crypto+crc
 #Enable fast FMA optimizations
 KBUILD_CFLAGS   += -ffp-contract=fast
 #Enable MLGO for register allocation.
 KBUILD_CFLAGS   += -mllvm -regalloc-enable-advisor=release
 #Enable hot cold split optimization
 KBUILD_CFLAGS   += -mllvm -hot-cold-split=true
-KBUILD_CFLAGS	+= -march=armv8.2-a+lse+fp16+dotprod -mcpu=cortex-a76+crypto+crc
 ifdef CONFIG_LLVM_POLLY
 KBUILD_CFLAGS	+= -mllvm -polly \
 		   -mllvm -polly-ast-use-context \
@@ -864,8 +860,12 @@ endif
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)
 
 ifeq ($(ld-name),lld)
-KBUILD_LDFLAGS  += -mllvm -mcpu=cortex-a76
-LDFLAGS += --lto-O3
+ifdef CONFIG_LTO_CLANG
+LDFLAGS += --plugin-opt=O3
+else
+LDFLAGS += -O3
+endif
+LDFLAGS += -mllvm -mcpu=cortex-a76
 LDFLAGS += -mllvm -regalloc-enable-advisor=release
 LDFLAGS += -mllvm -enable-ml-inliner=release
 endif
