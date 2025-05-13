@@ -1666,8 +1666,12 @@ static inline void __set_task_cpu(struct task_struct *p, unsigned int cpu)
 /*
  * Tunables that become constants when CONFIG_SCHED_DEBUG is off:
  */
+#ifdef CONFIG_SCHED_DEBUG
 # include <linux/static_key.h>
 # define const_debug __read_mostly
+#else
+# define const_debug const
+#endif
 
 #define sched_feat(x) SCHED_FEAT_##x
 
