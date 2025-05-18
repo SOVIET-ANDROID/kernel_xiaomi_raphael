@@ -12,7 +12,9 @@ jobs:
       KBUILD_BUILD_HOST: KREMLIN
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Set up ccache
         uses: hendrikmuhs/ccache-action@v1.2
@@ -21,6 +23,14 @@ jobs:
           key: kernel-build-cache
           restore-keys: |
             kernel-build-cache
+          max-size: '10G'
+
+      - name: Restore toolchain cache
+        id: restore-clang
+        uses: actions/cache/restore@v4
+        with:
+          path: /home/runner/r547379
+          key: clang-r547379
 
       - name: Install build dependencies
         run: |
@@ -29,10 +39,18 @@ jobs:
           
           ccache --show-stats
 
-      - name: Deploy Clang with AntMan
+      - name: Deploy Clang
+        if: steps.restore-clang.outputs.cache-hit != 'true'
         run: |
-          git clone https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r547379.git $HOME/r547379
-        shell: bash
+          git clone https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r547379.git /home/runner/r547379 --depth=1
+
+      - name: Save clang
+        if: steps.restore-clang.outputs.cache-hit != 'true'
+        id: cache-clang-save
+        uses: actions/cache/save@v4
+        with:
+          path: /home/runner/r547379
+          key: clang-r547379
 
       - name: Build the kernel with `ccache`
         run: |
