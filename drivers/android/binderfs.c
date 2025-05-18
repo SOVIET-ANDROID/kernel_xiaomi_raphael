@@ -117,7 +117,7 @@ static int binderfs_binder_device_create(struct inode *ref_inode,
 	/* Reserve new minor number for the new device. */
 	mutex_lock(&binderfs_minors_mutex);
 	if (++info->device_count <= info->mount_opts.max)
-	        minor = ida_simple_get(&binderfs_minors, 0,
+		minor = ida_simple_get(&binderfs_minors, 0,
 				      use_reserve ? BINDERFS_MAX_MINOR + 1:
 						    BINDERFS_MAX_MINOR_CAPPED + 1,
 				      GFP_KERNEL);
@@ -555,6 +555,7 @@ out:
 	return dentry;
 }
 
+#ifdef CONFIG_ANDROID_BINDER_LOGS
 static struct dentry *binderfs_create_dir(struct dentry *parent,
 					  const char *name)
 {
@@ -626,6 +627,12 @@ static int init_binder_logs(struct super_block *sb)
 out:
 	return ret;
 }
+#else
+static inline int init_binder_logs(struct super_block *sb)
+{
+	return 0;
+}
+#endif
 
 static int binderfs_fill_super(struct super_block *sb, void *data, int silent)
 {

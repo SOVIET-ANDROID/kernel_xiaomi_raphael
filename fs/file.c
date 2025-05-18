@@ -649,7 +649,7 @@ out_unlock:
  * The caller must ensure that filp_close() called on the file, and then
  * an fput().
  */
-int __close_fd_get_file(unsigned int fd, struct file **res)
+int close_fd_get_file(unsigned int fd, struct file **res)
 {
 	struct files_struct *files = current->files;
 	struct file *file;

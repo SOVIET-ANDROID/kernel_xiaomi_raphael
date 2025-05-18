@@ -36,7 +36,9 @@ enum {
 	BINDER_DEBUG_BUFFER_ALLOC           = 1U << 2,
 	BINDER_DEBUG_BUFFER_ALLOC_ASYNC     = 1U << 3,
 };
-static uint32_t binder_alloc_debug_mask = 0;
+
+#ifdef CONFIG_ANDROID_BINDER_LOGS
+static uint32_t binder_alloc_debug_mask = BINDER_DEBUG_USER_ERROR;
 
 module_param_named(debug_mask, binder_alloc_debug_mask,
 		   uint, 0644);
@@ -46,6 +48,9 @@ module_param_named(debug_mask, binder_alloc_debug_mask,
 		if (binder_alloc_debug_mask & mask) \
 			pr_info_ratelimited(x); \
 	} while (0)
+#else
+#define binder_alloc_debug(mask, x...) {}
+#endif
 
 static struct kmem_cache *binder_buffer_pool;
 
@@ -247,7 +252,7 @@ static int binder_install_single_page(struct binder_alloc *alloc,
 	 * Protected with mmap_sem in write mode as multiple tasks
 	 * might race to install the same page.
 	 */
-	down_read(&alloc->vma_vm_mm->mmap_sem);
+	down_write(&alloc->vma_vm_mm->mmap_sem);
 	if (binder_get_installed_page(lru_page))
 		goto out;
 
@@ -277,7 +282,7 @@ static int binder_install_single_page(struct binder_alloc *alloc,
 	/* Mark page installation complete and safe to use */
 	binder_set_installed_page(lru_page, page);
 out:
-	up_read(&alloc->vma_vm_mm->mmap_sem);
+	up_write(&alloc->vma_vm_mm->mmap_sem);
 	mmput_async(alloc->vma_vm_mm);
 	return ret;
 }
@@ -868,8 +873,8 @@ int binder_alloc_mmap_handler(struct binder_alloc *alloc,
 	alloc->buffer = (void __user *)vma->vm_start;
 
 	alloc->pages = kvcalloc(alloc->buffer_size / PAGE_SIZE,
-			       sizeof(alloc->pages[0]),
-			       GFP_KERNEL);
+				sizeof(alloc->pages[0]),
+				GFP_KERNEL);
 	if (alloc->pages == NULL) {
 		ret = -ENOMEM;
 		failure_string = "alloc page array";
@@ -970,9 +975,9 @@ void binder_alloc_deferred_release(struct binder_alloc *alloc)
 			__free_page(alloc->pages[i].page_ptr);
 			page_count++;
 		}
-		kvfree(alloc->pages);
 	}
 	binder_alloc_unlock(alloc);
+	kvfree(alloc->pages);
 	if (alloc->vma_vm_mm)
 		mmdrop(alloc->vma_vm_mm);
 
@@ -998,7 +1003,7 @@ void binder_alloc_print_allocated(struct seq_file *m,
 	binder_alloc_lock(alloc);
 	for (n = rb_first(&alloc->allocated_buffers); n; n = rb_next(n)) {
 		buffer = rb_entry(n, struct binder_buffer, rb_node);
-		seq_printf(m, "  buffer %d: %lx size %zd:%zd:%zd %s\n",
+		seq_printf(m, "  buffer %d: %tx size %zd:%zd:%zd %s\n",
 			   buffer->debug_id,
 			   buffer->user_data - alloc->buffer,
 			   buffer->data_size, buffer->offsets_size,

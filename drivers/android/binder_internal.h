@@ -14,6 +14,7 @@
 #include <linux/uidgid.h>
 #include <uapi/linux/android/binderfs.h>
 #include "binder_alloc.h"
+#include "dbitmap.h"
 
 struct binder_context {
 	struct binder_node *binder_context_mgr_node;
@@ -70,12 +71,18 @@ struct binderfs_info {
 	kgid_t root_gid;
 	struct binderfs_mount_opts mount_opts;
 	int device_count;
+#ifdef CONFIG_ANDROID_BINDER_LOGS
 	struct dentry *proc_log_dir;
+#endif
 };
 
 extern const struct file_operations binder_fops;
 
 extern char *binder_devices_param;
+
+#ifdef CONFIG_UCLAMP_TASK
+unsigned long uclamp_eff_value(struct task_struct *p, enum uclamp_id clamp_id);
+#endif
 
 #ifdef CONFIG_ANDROID_BINDERFS
 extern bool is_binderfs_device(const struct inode *inode);
@@ -107,6 +114,18 @@ static inline int __init init_binderfs(void)
 }
 #endif
 
+enum binder_stat_types {
+	BINDER_STAT_PROC,
+	BINDER_STAT_THREAD,
+	BINDER_STAT_NODE,
+	BINDER_STAT_REF,
+	BINDER_STAT_DEATH,
+	BINDER_STAT_TRANSACTION,
+	BINDER_STAT_TRANSACTION_COMPLETE,
+	BINDER_STAT_COUNT
+};
+
+#ifdef CONFIG_ANDROID_BINDER_LOGS
 struct binder_debugfs_entry {
 	const char *name;
 	umode_t mode;
@@ -121,23 +140,13 @@ extern const struct binder_debugfs_entry binder_debugfs_entries[];
 	     (entry)->name;			\
 	     (entry)++)
 
-enum binder_stat_types {
-	BINDER_STAT_PROC,
-	BINDER_STAT_THREAD,
-	BINDER_STAT_NODE,
-	BINDER_STAT_REF,
-	BINDER_STAT_DEATH,
-	BINDER_STAT_TRANSACTION,
-	BINDER_STAT_TRANSACTION_COMPLETE,
-	BINDER_STAT_COUNT
-};
-
 struct binder_stats {
 	atomic_t br[_IOC_NR(BR_ONEWAY_SPAM_SUSPECT) + 1];
 	atomic_t bc[_IOC_NR(BC_REPLY_SG) + 1];
 	atomic_t obj_created[BINDER_STAT_COUNT];
 	atomic_t obj_deleted[BINDER_STAT_COUNT];
 };
+#endif
 
 /**
  * struct binder_work - work enqueued on a worklist
@@ -158,6 +167,10 @@ struct binder_work {
 		BINDER_WORK_DEAD_BINDER,
 		BINDER_WORK_DEAD_BINDER_AND_CLEAR,
 		BINDER_WORK_CLEAR_DEATH_NOTIFICATION,
+#ifndef __GENKSYMS__
+		BINDER_WORK_FROZEN_BINDER,
+		BINDER_WORK_CLEAR_FREEZE_NOTIFICATION,
+#endif
 	} type;
 };
 
@@ -279,6 +292,14 @@ struct binder_ref_death {
 	binder_uintptr_t cookie;
 };
 
+struct binder_ref_freeze {
+	struct binder_work work;
+	binder_uintptr_t cookie;
+	bool is_frozen:1;
+	bool sent:1;
+	bool resend:1;
+};
+
 /**
  * struct binder_ref_data - binder_ref counts and id
  * @debug_id:        unique ID for the ref
@@ -311,6 +332,8 @@ struct binder_ref_data {
  *               @node indicates the node must be freed
  * @death:       pointer to death notification (ref_death) if requested
  *               (protected by @node->lock)
+ * @freeze:      pointer to freeze notification (ref_freeze) if requested
+ *               (protected by @node->lock)
  *
  * Structure to track references from procA to target node (on procB). This
  * structure is unsafe to access without holding @proc->outer_lock.
@@ -327,13 +350,14 @@ struct binder_ref {
 	struct binder_proc *proc;
 	struct binder_node *node;
 	struct binder_ref_death *death;
+	struct binder_ref_freeze *freeze;
 };
 
 /**
- * struct binder_priority - scheduler policy and priority
+ * struct binder_priority - scheduler policy, priority and uclamp
  * @sched_policy            scheduler policy
  * @prio                    [100..139] for SCHED_NORMAL, [0..99] for FIFO/RT
- *
+ * @uclamp                  [0..1024] for UCLAMP_MIN & UCLAMP_MAX
  * The binder driver supports inheriting the following scheduler policies:
  * SCHED_NORMAL
  * SCHED_BATCH
@@ -343,6 +367,7 @@ struct binder_ref {
 struct binder_priority {
 	unsigned int sched_policy;
 	int prio;
+	unsigned int uclamp[UCLAMP_CNT];
 };
 
 enum binder_prio_state {
@@ -394,6 +419,8 @@ enum binder_prio_state {
  * @freeze_wait:          waitqueue of processes waiting for all outstanding
  *                        transactions to be processed
  *                        (protected by @inner_lock)
+ * @dmap                  dbitmap to manage available reference descriptors
+ *                        (protected by @outer_lock)
  * @todo:                 list of work for this process
  *                        (protected by @inner_lock)
  * @stats:                per-process binder statistics
@@ -443,9 +470,11 @@ struct binder_proc {
 	bool sync_recv;
 	bool async_recv;
 	wait_queue_head_t freeze_wait;
-
+	struct dbitmap dmap;
 	struct list_head todo;
+#ifdef CONFIG_ANDROID_BINDER_LOGS
 	struct binder_stats stats;
+#endif
 	struct list_head delivered_death;
 	int max_threads;
 	int requested_threads;
@@ -461,10 +490,24 @@ struct binder_proc {
 	bool oneway_spam_detection_enabled;
 };
 
+/**
+ * struct binder_proc_wrap - wrapper to preserve KMI in binder_proc
+ * @proc:                    binder_proc being wrapped
+ * @lock:                    protects @proc->alloc fields
+ * @delivered_freeze:        list of delivered freeze notification
+ *                           (protected by @inner_lock)
+ */
 struct binder_proc_wrap {
 	struct binder_proc proc;
 	spinlock_t lock;
+	struct list_head delivered_freeze;
 };
+
+static inline
+struct binder_proc_wrap *proc_wrapper(struct binder_proc *proc)
+{
+	return container_of(proc, struct binder_proc_wrap, proc);
+}
 
 static inline struct binder_proc *
 binder_proc_entry(struct binder_alloc *alloc)
@@ -473,15 +516,9 @@ binder_proc_entry(struct binder_alloc *alloc)
 }
 
 static inline struct binder_proc_wrap *
-binder_proc_wrap_entry(struct binder_proc *proc)
-{
-	return container_of(proc, struct binder_proc_wrap, proc);
-}
-
-static inline struct binder_proc_wrap *
 binder_alloc_to_proc_wrap(struct binder_alloc *alloc)
 {
-	return binder_proc_wrap_entry(binder_proc_entry(alloc));
+	return proc_wrapper(binder_proc_entry(alloc));
 }
 
 static inline void binder_alloc_lock_init(struct binder_alloc *alloc)
@@ -577,7 +614,9 @@ struct binder_thread {
 	struct binder_error return_error;
 	struct binder_error reply_error;
 	wait_queue_head_t wait;
+#ifdef CONFIG_ANDROID_BINDER_LOGS
 	struct binder_stats stats;
+#endif
 	atomic_t tmp_ref;
 	bool is_dead;
 	struct task_struct *task;
