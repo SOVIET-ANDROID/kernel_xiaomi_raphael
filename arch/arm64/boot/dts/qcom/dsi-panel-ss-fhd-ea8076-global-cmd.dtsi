@@ -240,7 +240,7 @@
 				qcom,mdss-dsi-v-top-border = <0>;
 				qcom,mdss-dsi-v-bottom-border = <0>;
 				qcom,mdss-dsi-panel-framerate = <90>;
-				qcom,mdss-dsi-panel-clockrate = "1500000000";
+				qcom,mdss-dsi-panel-clockrate = "Yh/";
 				qcom,mdss-dsi-panel-jitter = <0x5 0x1>;
 				qcom,mdss-dsi-on-command = [
 					/* Sleep Out (Wait 10ms: 0x0A) */
