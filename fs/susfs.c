@@ -34,8 +34,9 @@ bool susfs_is_log_enabled __read_mostly = true;
 
 /* sus_path */
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
-static DEFINE_HASHTABLE(SUS_PATH_HLIST, 10);
-static int susfs_update_sus_path_inode(char *target_pathname) {
+static DEFINE_HASHTABLE(FUSE_SUS_PATH_HLIST, 10);
+
+static int susfs_update_sus_path_inode(char *target_pathname, bool *out_is_fuse) {
 	struct path p;
 	struct inode *inode = NULL;
 	const char *dev_type;
@@ -44,36 +45,16 @@ static int susfs_update_sus_path_inode(char *target_pathname) {
 		SUSFS_LOGE("Failed opening file '%s'\n", target_pathname);
 		return 1;
 	}
-
-	// - We don't allow paths of which filesystem type is "tmpfs" or "fuse".
-	//   For tmpfs, because its starting inode->i_ino will begin with 1 again,
-	//   so it will cause wrong comparison in function susfs_sus_ino_for_filldir64()
-	//   For fuse, which is almost storage related, sus_path should not handle any paths of
-	//   which filesystem is "fuse" as well, since app can write to "fuse" and lookup files via
-	//   like binder / system API (you can see the uid is changed to 1000)/
-	// - so sus_path should be applied only on read-only filesystem like "erofs" or "f2fs", but not "tmpfs" or "fuse",
-	//   people may rely on HMA for /data isolation instead.
-	dev_type = p.mnt->mnt_sb->s_type->name;
-	if (!strcmp(dev_type, "tmpfs") ||
-		!strcmp(dev_type, "fuse")) {
-		SUSFS_LOGE("target_pathname: '%s' cannot be added since its filesystem type is '%s'\n",
-						target_pathname, dev_type);
-		path_put(&p);
-		return 1;
-	}
-
 	inode = d_inode(p.dentry);
-	if (!inode) {
-		SUSFS_LOGE("inode is NULL\n");
-		path_put(&p);
-		return 1;
-	}
-
-	if (!(inode->i_state & INODE_STATE_SUS_PATH)) {
 		spin_lock(&inode->i_lock);
 		inode->i_state |= INODE_STATE_SUS_PATH;
 		spin_unlock(&inode->i_lock);
+	if (p.mnt->mnt_sb->s_magic == FUSE_SUPER_MAGIC) {
+		*out_is_fuse = true;	
 	}
+
+	SUSFS_LOGI("target_pathname: '%s' is flagged with INODE_STATE_SUS_PATH\n", target_pathname);
+
 	path_put(&p);
 	return 0;
 }
@@ -84,14 +65,23 @@ int susfs_add_sus_path(struct st_susfs_sus_path* __user user_info) {
 	struct hlist_node *tmp_node;
 	int bkt;
 	bool update_hlist = false;
+	bool is_fuse = false;
 
 	if (copy_from_user(&info, user_info, sizeof(info))) {
 		SUSFS_LOGE("failed copying from userspace\n");
 		return 1;
 	}
 
+	if (susfs_update_sus_path_inode(info.target_pathname, &is_fuse)) {
+		return 1;
+	}
+
+	if (!is_fuse) {
+		return 0;
+	}
+
 	spin_lock(&susfs_spin_lock);
-	hash_for_each_safe(SUS_PATH_HLIST, bkt, tmp_node, tmp_entry, node) {
+	hash_for_each_safe(FUSE_SUS_PATH_HLIST, bkt, tmp_node, tmp_entry, node) {
 	if (!strcmp(tmp_entry->target_pathname, info.target_pathname)) {
 			hash_del(&tmp_entry->node);
 			kfree(tmp_entry);
@@ -109,31 +99,32 @@ int susfs_add_sus_path(struct st_susfs_sus_path* __user user_info) {
 
 	new_entry->target_ino = info.target_ino;
 	strncpy(new_entry->target_pathname, info.target_pathname, SUSFS_MAX_LEN_PATHNAME-1);
-	if (susfs_update_sus_path_inode(new_entry->target_pathname)) {
-		kfree(new_entry);
-		return 1;
-	}
+	new_entry->i_uid = info.i_uid;
+
 	spin_lock(&susfs_spin_lock);
-	hash_add(SUS_PATH_HLIST, &new_entry->node, info.target_ino);
+	hash_add(FUSE_SUS_PATH_HLIST, &new_entry->node, info.target_ino);
 	if (update_hlist) {
-		SUSFS_LOGI("target_ino: '%lu', target_pathname: '%s' is successfully updated to SUS_PATH_HLIST\n",
+		SUSFS_LOGI("target_ino: '%lu', target_pathname: '%s' is successfully updated to FUSE_SUS_PATH_HLIST\n",
 				new_entry->target_ino, new_entry->target_pathname);	
 	} else {
-		SUSFS_LOGI("target_ino: '%lu', target_pathname: '%s' is successfully added to SUS_PATH_HLIST\n",
+		SUSFS_LOGI("target_ino: '%lu', target_pathname: '%s' is successfully added to FUSE_SUS_PATH_HLIST\n",
 				new_entry->target_ino, new_entry->target_pathname);
 	}
 	spin_unlock(&susfs_spin_lock);
 	return 0;
 }
 
-int susfs_sus_ino_for_filldir64(unsigned long ino) {
+bool susfs_is_fuse_ino_sus_ino(unsigned long ino) {
 	struct st_susfs_sus_path_hlist *entry;
 
-	hash_for_each_possible(SUS_PATH_HLIST, entry, node, ino) {
-		if (entry->target_ino == ino)
-			return 1;
+	hash_for_each_possible(FUSE_SUS_PATH_HLIST, entry, node, ino) {
+		if (entry->target_ino == ino &&
+				(likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) &&
+				entry->i_uid != current_uid().val)
+			return true;
+
 	}
-	return 0;
+	return false;
 }
 #endif // #ifdef CONFIG_KSU_SUSFS_SUS_PATH
 
@@ -312,14 +303,6 @@ static int susfs_update_sus_kstat_inode(char *target_pathname) {
 	err = kern_path(target_pathname, LOOKUP_FOLLOW, &p);
 	if (err) {
 		SUSFS_LOGE("Failed opening file '%s'\n", target_pathname);
-		return 1;
-	}
-
-	// We don't allow path of which filesystem type is "tmpfs", because its inode->i_ino is starting from 1 again,
-	// which will cause wrong comparison in function susfs_sus_ino_for_filldir64()
-	if (strcmp(p.mnt->mnt_sb->s_type->name, "tmpfs") == 0) {
-		SUSFS_LOGE("target_pathname: '%s' cannot be added since its filesystem is 'tmpfs'\n", target_pathname);
-		path_put(&p);
 		return 1;
 	}
 
