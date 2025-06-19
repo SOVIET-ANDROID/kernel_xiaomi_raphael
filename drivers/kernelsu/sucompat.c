@@ -10,11 +10,11 @@
 #include <linux/version.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
 #include <linux/sched/task_stack.h>
-#else
-#include <linux/sched.h>
-#endif
 #ifdef CONFIG_KSU_SUSFS_SUS_SU
 #include <linux/susfs_def.h>
+#endif
+#else
+#include <linux/sched.h>
 #endif
 
 #include "objsec.h"
@@ -383,6 +383,7 @@ void ksu_sucompat_exit()
 
 #ifdef CONFIG_KSU_SUSFS_SUS_SU
 extern bool ksu_su_compat_enabled;
+bool ksu_devpts_hook = false;
 bool susfs_is_sus_su_hooks_enabled __read_mostly = false;
 int susfs_sus_su_working_mode = 0;
 
