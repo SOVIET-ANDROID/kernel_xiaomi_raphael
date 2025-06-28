@@ -17,7 +17,7 @@ DEFCONFIG="raphael_defconfig"
 # Kernel Details
 REV="R7.1"
 
-EDITION="BLACK"
+EDITION="BLACK-SUSFS"
 VER="$EDITION"-"$REV"
 
 # Vars
