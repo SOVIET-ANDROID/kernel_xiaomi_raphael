@@ -12,7 +12,6 @@
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
 
-#include <linux/cpufreq.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/thermal.h>
@@ -143,69 +142,56 @@ static void limits_dcvs_get_freq_limits(struct limits_dcvs_hw *hw)
 	}
 }
 
-static unsigned long limits_mitigation_notify(struct limits_dcvs_hw *hw, bool limit)
+static unsigned long limits_mitigation_notify(struct limits_dcvs_hw *hw)
 {
 	uint32_t val = 0, max_cpu_ct = 0, max_cpu_limit = 0, idx = 0, cpu = 0;
 	struct device *cpu_dev = NULL;
 	unsigned long freq_val, max_limit = 0;
 	struct dev_pm_opp *opp_entry;
-	unsigned long max_capacity, capacity;
-	struct cpufreq_policy *policy = NULL;
 
-	capacity = max_capacity = arch_scale_cpu_capacity(cpumask_first(&hw->core_map));
-	policy = cpufreq_cpu_get(cpumask_first(&hw->core_map));
-
-	if (limit) {
-		val = readl_relaxed(hw->osm_hw_reg);
-		dcvsh_get_frequency(val, max_limit);
-		for_each_cpu(cpu, &hw->core_map) {
-			cpu_dev = get_cpu_device(cpu);
-			if (!cpu_dev) {
-				pr_err("Error in get CPU%d device\n",
-					cpumask_first(&hw->core_map));
-				goto notify_exit;
-			}
-
-			pr_debug("CPU:%d max value read:%lu\n",
-				cpumask_first(&hw->core_map),
-				max_limit);
-			freq_val = FREQ_KHZ_TO_HZ(max_limit);
-			opp_entry = dev_pm_opp_find_freq_floor(cpu_dev, &freq_val);
-			/*
-			 * Hardware mitigation frequency can be lower than the lowest
-			 * possible CPU frequency. In that case freq floor call will
-			 * fail with -ERANGE and we need to match to the lowest
-			 * frequency using freq_ceil.
-			 */
-			if (IS_ERR(opp_entry) && PTR_ERR(opp_entry) == -ERANGE) {
-				opp_entry = dev_pm_opp_find_freq_ceil(cpu_dev,
-									&freq_val);
-				if (IS_ERR(opp_entry))
-					dev_err(cpu_dev,
-						"frequency:%lu. opp error:%ld\n",
-						freq_val, PTR_ERR(opp_entry));
-			}
-			if (FREQ_HZ_TO_KHZ(freq_val) == hw->max_freq[idx]) {
-				max_cpu_ct++;
-				if (max_cpu_limit < hw->max_freq[idx])
-					max_cpu_limit = hw->max_freq[idx];
-				idx++;
-				continue;
-			}
-			max_limit = FREQ_HZ_TO_KHZ(freq_val);
-			if (policy) {
-				capacity = max_capacity * max_limit;
-				capacity /= policy->cpuinfo.max_freq;
-			}
-			break;
+	val = readl_relaxed(hw->osm_hw_reg);
+	dcvsh_get_frequency(val, max_limit);
+	for_each_cpu(cpu, &hw->core_map) {
+		cpu_dev = get_cpu_device(cpu);
+		if (!cpu_dev) {
+			pr_err("Error in get CPU%d device\n",
+				cpumask_first(&hw->core_map));
+			goto notify_exit;
 		}
-	}
 
-	arch_set_thermal_pressure(&hw->core_map, max_t(unsigned long, 0,
-				  max_capacity - capacity));
+		pr_debug("CPU:%d max value read:%lu\n",
+			cpumask_first(&hw->core_map),
+			max_limit);
+		freq_val = FREQ_KHZ_TO_HZ(max_limit);
+		opp_entry = dev_pm_opp_find_freq_floor(cpu_dev, &freq_val);
+		/*
+		 * Hardware mitigation frequency can be lower than the lowest
+		 * possible CPU frequency. In that case freq floor call will
+		 * fail with -ERANGE and we need to match to the lowest
+		 * frequency using freq_ceil.
+		 */
+		if (IS_ERR(opp_entry) && PTR_ERR(opp_entry) == -ERANGE) {
+			opp_entry = dev_pm_opp_find_freq_ceil(cpu_dev,
+								&freq_val);
+			if (IS_ERR(opp_entry))
+				dev_err(cpu_dev,
+					"frequency:%lu. opp error:%ld\n",
+					freq_val, PTR_ERR(opp_entry));
+		}
+		if (FREQ_HZ_TO_KHZ(freq_val) == hw->max_freq[idx]) {
+			max_cpu_ct++;
+			if (max_cpu_limit < hw->max_freq[idx])
+				max_cpu_limit = hw->max_freq[idx];
+			idx++;
+			continue;
+		}
+		max_limit = FREQ_HZ_TO_KHZ(freq_val);
+		break;
+	}
 
 	if (max_cpu_ct == cpumask_weight(&hw->core_map))
 		max_limit = max_cpu_limit;
+	sched_update_cpu_freq_min_max(&hw->core_map, 0, max_limit);
 	pr_debug("CPU:%d max limit:%lu\n", cpumask_first(&hw->core_map),
 			max_limit);
 	trace_lmh_dcvs_freq(cpumask_first(&hw->core_map), max_limit);
@@ -229,16 +215,13 @@ static void limits_dcvs_poll(struct work_struct *work)
 	mutex_lock(&hw->access_lock);
 	if (hw->max_freq[0] == U32_MAX)
 		limits_dcvs_get_freq_limits(hw);
-	max_limit = limits_mitigation_notify(hw, true);
+	max_limit = limits_mitigation_notify(hw);
 	for_each_cpu(cpu, &hw->core_map) {
 		if (max_limit >= hw->max_freq[idx])
 			cpu_ct++;
 		idx++;
 	}
 	if (cpu_ct >= cpumask_weight(&hw->core_map)) {
-		/* Update scheduler for throttle removal */
-		limits_mitigation_notify(hw, false);
-	
 		writel_relaxed(0xFF, hw->int_clr_reg);
 		hw->is_irq_enabled = true;
 		enable_irq(hw->irq_num);
@@ -254,7 +237,7 @@ static void lmh_dcvs_notify(struct limits_dcvs_hw *hw)
 	if (hw->is_irq_enabled) {
 		hw->is_irq_enabled = false;
 		disable_irq_nosync(hw->irq_num);
-		limits_mitigation_notify(hw, true);
+		limits_mitigation_notify(hw);
 		mod_delayed_work(system_highpri_wq, &hw->freq_poll_work,
 			 msecs_to_jiffies(LIMITS_POLLING_DELAY_MS));
 	}
