@@ -7,9 +7,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      KBUILD_BUILD_USER: NATO66613
-      KBUILD_BUILD_HOST: KREMLIN
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -56,6 +53,8 @@ jobs:
         run: |
           export CLANG_PATH=$HOME/r547379/bin
           export PATH=${CLANG_PATH}:${PATH}
+          
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
           
           # Use ccache explicitly
           make LLVM=1 LLVM_IAS=1 CC="ccache clang" raphael_defconfig
