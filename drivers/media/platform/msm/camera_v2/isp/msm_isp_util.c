@@ -2604,7 +2604,7 @@ void msm_isp_irq_debug_dump(struct vfe_device *vfe_dev)
 	dump_index = vfe_dev->common_data->vfe_irq_dump.current_irq_index;
 	for (i = 0; i < MAX_VFE_IRQ_DEBUG_DUMP_SIZE; i++) {
 		trace_msm_cam_ping_pong_debug_dump(
-			vfe_dev->common_data->vfe_irq_dump.irq_debug[
+			&vfe_dev->common_data->vfe_irq_dump.irq_debug[
 				dump_index % MAX_VFE_IRQ_DEBUG_DUMP_SIZE]);
 		dump_index++;
 	}
@@ -2626,7 +2626,7 @@ void msm_isp_tasklet_debug_dump(struct vfe_device *vfe_dev)
 	dump_index = vfe_dev->common_data->vfe_irq_dump.current_tasklet_index;
 	for (i = 0; i < MAX_VFE_IRQ_DEBUG_DUMP_SIZE; i++) {
 		trace_msm_cam_tasklet_debug_dump(
-			vfe_dev->common_data->vfe_irq_dump.tasklet_debug[
+			&vfe_dev->common_data->vfe_irq_dump.tasklet_debug[
 				dump_index % MAX_VFE_IRQ_DEBUG_DUMP_SIZE]);
 		dump_index++;
 	}
