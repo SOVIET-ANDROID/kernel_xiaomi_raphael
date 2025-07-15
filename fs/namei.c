@@ -1688,9 +1688,6 @@ static struct dentry *__lookup_hash(const struct qstr *name,
 		if (susfs_is_base_dentry_android_data_dir(base) &&
 			susfs_is_sus_android_data_d_name_found(name->name))
 		{
-			if (flags & (LOOKUP_CREATE | LOOKUP_EXCL)) {
-				return ERR_PTR(-EACCES);
-			}
 			dentry = lookup_dcache(&susfs_fake_qstr_name, base, flags);
 			found_sus_path = true;
 			goto retry;

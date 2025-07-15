@@ -46,14 +46,19 @@
 /*
  * inode->i_state => storing flag 'INODE_STATE_'
  * mount->mnt.susfs_mnt_id_backup => storing original mnt_id of normal mounts or custom sus mnt_id of sus mounts
- * task_struct->susfs_task_state => storing flag 'TASK_STRUCT_'
+ * inode->i_mapping->flags => storing flag 'AS_FLAGS_'
+ * nd->state => storing flag 'ND_STATE_'
+ * nd->flags => storing flag 'ND_FLAGS_'
+ * task_struct->thread_info.flags => storing flag 'TIF_'
  */
 #define INODE_STATE_SUS_PATH BIT(24)
 #define INODE_STATE_SUS_MOUNT BIT(25)
 #define INODE_STATE_SUS_KSTAT BIT(26)
 #define INODE_STATE_OPEN_REDIRECT BIT(27)
 
-#define TASK_STRUCT_NON_ROOT_USER_APP_PROC BIT(24)
+ // thread_info->flags is unsigned long :D
+#define TIF_NON_ROOT_USER_APP_PROC 33
+#define TIF_PROC_SU_NOT_ALLOWED 34
 
 #define AS_FLAGS_ANDROID_DATA_ROOT_DIR 28
 #define AS_FLAGS_SDCARD_ROOT_DIR 29
@@ -64,11 +69,27 @@
 #define ND_STATE_OPEN_LAST 64
 #define ND_STATE_LAST_SDCARD_SUS_PATH 128
 #define ND_FLAGS_LOOKUP_LAST		0x2000000
-
+ 
 #define MAGIC_MOUNT_WORKDIR "/debug_ramdisk/workdir"
 #define DATA_ADB_UMOUNT_FOR_ZYGOTE_SYSTEM_PROCESS "/data/adb/susfs_umount_for_zygote_system_process"
 #define DATA_ADB_NO_AUTO_ADD_SUS_BIND_MOUNT "/data/adb/susfs_no_auto_add_sus_bind_mount"
 #define DATA_ADB_NO_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT "/data/adb/susfs_no_auto_add_sus_ksu_default_mount"
 #define DATA_ADB_NO_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT "/data/adb/susfs_no_auto_add_try_umount_for_bind_mount"
+
+static inline bool susfs_is_current_non_root_user_app_proc(void) {
+	return test_ti_thread_flag(&current->thread_info, TIF_NON_ROOT_USER_APP_PROC);
+}
+
+static inline void susfs_set_current_non_root_user_app_proc(void) {
+	set_ti_thread_flag(&current->thread_info, TIF_NON_ROOT_USER_APP_PROC);
+}
+
+static inline bool susfs_is_current_proc_su_not_allowed(void) {
+	return test_ti_thread_flag(&current->thread_info, TIF_PROC_SU_NOT_ALLOWED);
+}
+
+static inline void susfs_set_current_proc_su_not_allowed(void) {
+	set_ti_thread_flag(&current->thread_info, TIF_PROC_SU_NOT_ALLOWED);
+}
 
 #endif // #ifndef KSU_SUSFS_DEF_H
