@@ -103,7 +103,7 @@ static void inotify_fdinfo(struct seq_file *m, struct fsnotify_mark *mark)
 	if (inode) {
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 		if (likely(susfs_is_current_non_root_user_app_proc()) &&
-				unlikely(inode->i_state & INODE_STATE_SUS_KSTAT)) {
+				unlikely(inode->i_mapping->flags & BIT_SUS_KSTAT)) {
 			struct path path;
 			char *pathname = kmalloc(PAGE_SIZE, GFP_KERNEL);
 			char *dpath;
