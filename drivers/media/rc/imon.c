@@ -637,14 +637,15 @@ static int send_packet(struct imon_context *ictx)
 		pr_err_ratelimited("error submitting urb(%d)\n", retval);
 	} else {
 		/* Wait for transmission to complete (or abort) */
+		mutex_unlock(&ictx->lock);
 		retval = wait_for_completion_interruptible(
 				&ictx->tx.finished);
 		if (retval) {
 			usb_kill_urb(ictx->tx_urb);
 			pr_err_ratelimited("task interrupted\n");
 		}
+		mutex_lock(&ictx->lock);
 
-		ictx->tx.busy = false;
 		retval = ictx->tx.status;
 		if (retval)
 			pr_err_ratelimited("packet tx failed (%d)\n", retval);
@@ -951,8 +952,7 @@ static ssize_t vfd_write(struct file *file, const char __user *buf,
 		return -ENODEV;
 	}
 
-	if (mutex_lock_interruptible(&ictx->lock))
-		return -ERESTARTSYS;
+	mutex_lock(&ictx->lock);
 
 	if (!ictx->dev_present_intf0) {
 		pr_err_ratelimited("no iMON device present\n");
@@ -1734,7 +1734,8 @@ static void imon_incoming_scancode(struct imon_context *ictx,
 	spin_unlock_irqrestore(&ictx->kc_lock, flags);
 
 	/* send touchscreen events through input subsystem if touchpad data */
-	if (ictx->touch && len == 8 && buf[7] == 0x86) {
+	if (ictx->display_type == IMON_DISPLAY_TYPE_VGA && len == 8 &&
+	    buf[7] == 0x86) {
 		imon_touch_event(ictx, buf);
 		return;
 
@@ -1959,16 +1960,11 @@ static void imon_get_ffdc_type(struct imon_context *ictx)
 		break;
 	/* iMON VFD, MCE IR */
 	case 0x46:
+	case 0x7e:
 	case 0x9e:
 		dev_info(ictx->dev, "0xffdc iMON VFD, MCE IR");
 		detected_display_type = IMON_DISPLAY_TYPE_VFD;
 		allowed_protos = RC_PROTO_BIT_RC6_MCE;
-		break;
-	/* iMON VFD, iMON or MCE IR */
-	case 0x7e:
-		dev_info(ictx->dev, "0xffdc iMON VFD, iMON or MCE IR");
-		detected_display_type = IMON_DISPLAY_TYPE_VFD;
-		allowed_protos |= RC_PROTO_BIT_RC6_MCE;
 		break;
 	/* iMON LCD, MCE IR */
 	case 0x9f:
@@ -2518,11 +2514,6 @@ static int imon_probe(struct usb_interface *interface,
 	mutex_lock(&driver_lock);
 
 	first_if = usb_ifnum_to_if(usbdev, 0);
-	if (!first_if) {
-		ret = -ENODEV;
-		goto fail;
-	}
-
 	first_if_ctx = usb_get_intfdata(first_if);
 
 	if (ifnum == 0) {
