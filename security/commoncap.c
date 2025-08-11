@@ -54,7 +54,7 @@ static void warn_setuid_and_fcaps_mixed(const char *fname)
 }
 
 /**
- * __cap_capable - Determine whether a task has a particular effective capability
+ * cap_capable - Determine whether a task has a particular effective capability
  * @cred: The credentials to use
  * @ns:  The user namespace in which we need the capability
  * @cap: The capability to check for
@@ -68,7 +68,7 @@ static void warn_setuid_and_fcaps_mixed(const char *fname)
  * cap_has_capability() returns 0 when a task has a capability, but the
  * kernel's capable() and has_capability() returns 1 for this case.
  */
-int __cap_capable(const struct cred *cred, struct user_namespace *targ_ns,
+int cap_capable(const struct cred *cred, struct user_namespace *targ_ns,
 		int cap, int audit)
 {
 	struct user_namespace *ns = targ_ns;
@@ -113,11 +113,6 @@ int __cap_capable(const struct cred *cred, struct user_namespace *targ_ns,
 	/* We never get here */
 }
 
-int cap_capable(const struct cred *cred, struct user_namespace *targ_ns,
-		int cap, int audit)
-{
-	return __cap_capable(cred, targ_ns, cap, audit);
-}
 /**
  * cap_settime - Determine whether the current process may set the system clock
  * @ts: The time to set
