@@ -96,11 +96,4 @@ static inline void susfs_set_current_proc_su_not_allowed(void) {
 	set_ti_thread_flag(&current->thread_info, TIF_PROC_SU_NOT_ALLOWED);
 }
 
-static inline bool susfs_starts_with(const char *str, const char *prefix) {
-    while (*prefix) {
-        if (*str++ != *prefix++)
-            return false;
-    }
-    return true;
-}
 #endif // #ifndef KSU_SUSFS_DEF_H
