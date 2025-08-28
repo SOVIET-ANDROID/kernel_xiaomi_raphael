@@ -34,60 +34,64 @@ fn mount_partition(partition_name: &str, lowerdir: &Vec<String>) -> Result<()> {
 }
 
 pub fn mount_modules_systemlessly(module_dir: &str) -> Result<()> {
-    // construct overlay mount params
-    let dir = std::fs::read_dir(module_dir);
-    let Ok(dir) = dir else {
-        bail!("open {} failed", defs::MODULE_DIR);
-    };
+    use std::fs::File;
+    use std::process::Command;
+    use crate::mount::AutoMountExt4;
 
-    let mut system_lowerdir: Vec<String> = vec!["/system".to_string()];
+    let tmp_img = "/data/adb/modules_tmp.img";
+    let mount_dir = "/data/adb/modules_tmp";
 
-    let partition = vec!["vendor", "product", "system_ext", "odm", "oem"];
-    let mut partition_lowerdir: HashMap<String, Vec<String>> = HashMap::new();
-    for ele in &partition {
-        partition_lowerdir.insert((*ele).to_string(), Vec::new());
+    if !std::path::Path::new(tmp_img).exists() {
+        let file = File::create(tmp_img)?;
+        file.set_len(5 * 1024 * 1024 * 1024)?;
+        Command::new("mkfs.ext4")
+            .arg("-F")
+            .arg(tmp_img)
+            .status()?;
     }
 
+    if !std::path::Path::new(mount_dir).exists() {
+        std::fs::create_dir_all(mount_dir)?;
+    }
+    let _mounted = AutoMountExt4::try_new(tmp_img, mount_dir, true)?;
+
+    let dir = std::fs::read_dir(module_dir)?;
     for entry in dir.flatten() {
         let module = entry.path();
-        if !module.is_dir() {
-            continue;
-        }
+        if !module.is_dir() { continue; }
+
         let disabled = module.join(defs::DISABLE_FILE_NAME).exists();
-        if disabled {
-            info!("module: {} is disabled, ignore!", module.display());
-            continue;
-        }
+        if disabled { continue; }
+
         let skip_mount = module.join(defs::SKIP_MOUNT_FILE_NAME).exists();
-        if skip_mount {
-            info!("module: {} skip_mount exist, skip!", module.display());
-            continue;
+        if skip_mount { continue; }
+
+        let module_system = module.join("system");
+        if module_system.exists() {
+            let dest = std::path::Path::new(mount_dir).join(module.file_name().unwrap()).join("system");
+            crate::utils::copy_dir_all(&module_system, &dest)?;
         }
 
-        let module_system = Path::new(&module).join("system");
-        if module_system.is_dir() {
-            system_lowerdir.push(format!("{}", module_system.display()));
-        }
-
-        for part in &partition {
-            let part_path = Path::new(&module).join(part);
-            if part_path.is_dir() {
-                if let Some(v) = partition_lowerdir.get_mut(*part) {
-                    v.push(format!("{}", part_path.display()));
-                }
+        for part in ["vendor","product","system_ext","odm","oem"] {
+            let part_path = module.join(part);
+            if part_path.exists() {
+                let dest = std::path::Path::new(mount_dir).join(module.file_name().unwrap()).join(part);
+                crate::utils::copy_dir_all(&part_path, &dest)?;
             }
         }
     }
 
-    // mount /system overlay
-    if let Err(e) = mount_partition("system", &system_lowerdir) {
-        warn!("mount system failed: {:#}", e);
-    }
+    let overlay_system: Vec<String> = std::fs::read_dir(mount_dir)?
+        .flatten()
+        .filter_map(|e| {
+            let path = e.path().join("system");
+            if path.exists() { Some(path.display().to_string()) } else { None }
+        })
+        .collect();
 
-    // mount other partitions
-    for (k, v) in partition_lowerdir {
-        if let Err(e) = mount_partition(&k, &v) {
-            warn!("mount {k} failed: {:#}", e);
+    if !overlay_system.is_empty() {
+        if let Err(e) = mount_partition("system", &overlay_system) {
+            log::warn!("mount system failed: {:#}", e);
         }
     }
 
