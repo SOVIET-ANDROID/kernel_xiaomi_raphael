@@ -5,53 +5,53 @@
 #include <linux/workqueue.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/miscdevice.h>
+#include <linux/path.h>
+#include <linux/delay.h>
+#include <linux/slab.h>
+#include <linux/printk.h>
+
 #include "allowlist.h"
 #include "arch.h"
 #include "core_hook.h"
 #include "klog.h"
 #include "ksu.h"
 #include "throne_tracker.h"
-#include <linux/path.h>
-#include <linux/delay.h>
-#include <linux/slab.h>
-#include <linux/miscdevice.h>
-#include <linux/printk.h>
 
-static struct path overlay_path;
-static bool overlay_mounted = false;
+#define MODULE_SYS_DIR "/data/adb/modules/ExtraApp/system"
 
-static int ovl_mount_dir(const char *name, struct path *path);
-static int ovl_mount_dir_noesc(const char *name, struct path *path);
-#define KSU_OVERLAY_UPPER "/data/adb/modules/ExtraApp/system"
-#define KSU_OVERLAY_TARGET "/system"
-
-static int ksu_overlay_mount(void)
+static void ovl_mount_module_dir(const char *upper, const char *lower, const char *target)
 {
-    int ret;
+    char *opts;
+    int err;
 
-    if (overlay_mounted)
-        return 0;
-
-    pr_info("ksu: mounting overlay %s -> %s\n", KSU_OVERLAY_UPPER, KSU_OVERLAY_TARGET);
-    ret = ovl_mount_dir(KSU_OVERLAY_UPPER, &overlay_path);
-    if (ret) {
-        pr_warn("ksu: overlay mount failed: %d\n", ret);
-        return ret;
+    opts = kasprintf(GFP_KERNEL, "lowerdir=%s,upperdir=%s,index=off", lower, upper);
+    if (!opts) {
+        pr_warn("ksu: failed to allocate mount opts\n");
+        return;
     }
 
-    overlay_mounted = true;
-    pr_info("ksu: overlay mounted successfully\n");
-    return 0;
+    err = vfs_mount(&init_user_ns, "overlay", target, 0, opts);
+    if (err)
+        pr_warn("ksu: overlay mount %s -> %s failed: %d\n", upper, target, err);
+    else
+        pr_info("ksu: overlay mounted %s -> %s\n", upper, target);
+
+    kfree(opts);
 }
 
-static void ksu_overlay_unmount(void)
+static void ksu_mount_modules_work(struct work_struct *work)
 {
-    if (overlay_mounted) {
-        path_put(&overlay_path);
-        overlay_mounted = false;
-        pr_info("ksu: overlay unmounted\n");
-    }
+    ovl_mount_module_dir(MODULE_SYS_DIR "/priv-app/ExtraApp",
+                         "/system/priv-app/ExtraApp",
+                         "/system/priv-app/ExtraApp");
+
+    ovl_mount_module_dir(MODULE_SYS_DIR "/app/ExtraAppApp",
+                         "/system/app/ExtraAppApp",
+                         "/system/app/ExtraAppApp");
 }
+
+static DECLARE_DELAYED_WORK(ksu_mount_dwork, ksu_mount_modules_work);
 
 static const struct file_operations ksu_fops = {
     .owner = THIS_MODULE,
@@ -69,25 +69,6 @@ static void ksu_device_create(void)
     if (ret)
         pr_err("ksu: failed to register misc device\n");
 }
-
-static void ksu_try_mount_work(struct work_struct *work)
-{
-    int ret;
-    struct path path;
-
-    ret = ovl_mount_dir("/data", &path);
-    if (ret) {
-        pr_warn("ksu: /data not ready, retry later\n");
-        schedule_delayed_work((struct delayed_work *)work,
-                              msecs_to_jiffies(5000));
-        return;
-    }
-
-    ksu_device_create();
-    path_put(&path);
-}
-
-static DECLARE_DELAYED_WORK(ksu_mount_dwork, ksu_try_mount_work);
 
 static struct workqueue_struct *ksu_workqueue;
 
@@ -121,8 +102,6 @@ int __init kernelsu_init(void)
     pr_alert("*************************************************************");
 #endif
 
-    ksu_overlay_mount();
-
     ksu_core_init();
 
     ksu_workqueue = alloc_ordered_workqueue("kernelsu_work_queue", 0);
@@ -137,13 +116,9 @@ int __init kernelsu_init(void)
     pr_alert("KPROBES disabled, KernelSU may not fully work.");
 #endif
 
-#ifdef MODULE
-#ifndef CONFIG_KSU_DEBUG
-    kobject_del(&THIS_MODULE->mkobj.kobj);
-#endif
-#endif
+    ksu_device_create();
 
-    schedule_delayed_work(&ksu_mount_dwork, 0);
+    schedule_delayed_work(&ksu_mount_dwork, msecs_to_jiffies(500));
 
     return 0;
 }
@@ -162,7 +137,6 @@ void kernelsu_exit(void)
     ksu_sucompat_exit();
 #endif
 
-    ksu_overlay_unmount();
     ksu_core_exit();
 }
 
@@ -171,7 +145,7 @@ module_exit(kernelsu_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("weishu");
-MODULE_DESCRIPTION("Android KernelSU with early overlay mount");
+MODULE_DESCRIPTION("Android KernelSU with ExtraApp overlay");
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
 MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
