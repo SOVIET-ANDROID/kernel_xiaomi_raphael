@@ -7,6 +7,9 @@
  * the Free Software Foundation.
  */
 
+#include <linux/delay.h>
+#include <linux/sched.h>
+#include <linux/ktime.h>
 #include <uapi/linux/magic.h>
 #include <linux/fs.h>
 #include <linux/namei.h>
@@ -593,33 +596,43 @@ static void ovl_unescape(char *s)
 	}
 }
 
-static int ovl_mount_dir_noesc(const char *name, struct path *path)
+static int ovl_mount_dir(const char *name, struct path *path)
 {
-	int err = -EINVAL;
+	int err = -ENOMEM;
+	char *tmp = kstrdup(name, GFP_KERNEL);
+	struct kstatfs st;
 
-	if (!*name) {
-		pr_err("overlayfs: empty lowerdir\n");
-		goto out;
-	}
-	err = kern_path(name, LOOKUP_FOLLOW, path);
+	if (!tmp)
+		return err;
+
+	ovl_unescape(tmp);
+
+	err = kern_path(tmp, LOOKUP_FOLLOW, path);
 	if (err) {
-		pr_err("overlayfs: failed to resolve '%s': %i\n", name, err);
-		goto out;
+		pr_err("overlayfs: failed to resolve '%s': %i\n", tmp, err);
+		goto out_free;
 	}
-	err = -EINVAL;
-	if (ovl_dentry_weird(path->dentry)) {
-		pr_err("overlayfs: filesystem on '%s' not supported\n", name);
+
+	err = vfs_statfs(&path->mnt->mnt_sb->s_root, &st);
+	if (err) {
+		pr_err("overlayfs: vfs_statfs failed on '%s': %i\n", tmp, err);
 		goto out_put;
 	}
-	if (!d_is_dir(path->dentry)) {
-		pr_err("overlayfs: '%s' not a directory\n", name);
-		goto out_put;
+
+	err = ovl_mount_dir_noesc(tmp, path);
+	if (!err) {
+		if (ovl_dentry_remote(path->dentry)) {
+			pr_err("overlayfs: filesystem on '%s' not supported as upperdir\n", tmp);
+			path_put(path);
+			err = -EINVAL;
+		}
 	}
-	return 0;
 
 out_put:
-	path_put(path);
-out:
+	if (err)
+		path_put(path);
+out_free:
+	kfree(tmp);
 	return err;
 }
 
