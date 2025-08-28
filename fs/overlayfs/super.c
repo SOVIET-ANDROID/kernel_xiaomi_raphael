@@ -596,65 +596,74 @@ static void ovl_unescape(char *s)
 	}
 }
 
-static int ovl_mount_dir(const char *name, struct path *path)
+static int ovl_mount_dir_noesc(const char *name, struct path *path)
 {
-	int err = -ENOMEM;
-	char *tmp = kstrdup(name, GFP_KERNEL);
-	struct kstatfs st;
+	int err = -EINVAL;
 
-	if (!tmp)
-		return err;
-
-	ovl_unescape(tmp);
-
-	err = kern_path(tmp, LOOKUP_FOLLOW, path);
-	if (err) {
-		pr_err("overlayfs: failed to resolve '%s': %i\n", tmp, err);
-		goto out_free;
+	if (!*name) {
+		pr_err("overlayfs: empty lowerdir\n");
+		goto out;
 	}
-
-	err = vfs_statfs(&path->mnt->mnt_sb->s_root, &st);
+	err = kern_path(name, LOOKUP_FOLLOW, path);
 	if (err) {
-		pr_err("overlayfs: vfs_statfs failed on '%s': %i\n", tmp, err);
+		pr_err("overlayfs: failed to resolve '%s': %i\n", name, err);
+		goto out;
+	}
+	err = -EINVAL;
+	if (ovl_dentry_weird(path->dentry)) {
+		pr_err("overlayfs: filesystem on '%s' not supported\n", name);
 		goto out_put;
 	}
-
-	err = ovl_mount_dir_noesc(tmp, path);
-	if (!err) {
-		if (ovl_dentry_remote(path->dentry)) {
-			pr_err("overlayfs: filesystem on '%s' not supported as upperdir\n", tmp);
-			path_put(path);
-			err = -EINVAL;
-		}
+	if (!d_is_dir(path->dentry)) {
+		pr_err("overlayfs: '%s' not a directory\n", name);
+		goto out_put;
 	}
+	return 0;
 
 out_put:
-	if (err)
-		path_put(path);
-out_free:
-	kfree(tmp);
+	path_put(path);
+out:
 	return err;
 }
 
 static int ovl_mount_dir(const char *name, struct path *path)
 {
-	int err = -ENOMEM;
-	char *tmp = kstrdup(name, GFP_KERNEL);
+    int err = -ENOMEM;
+    char *tmp = kstrdup(name, GFP_KERNEL);
+    struct kstatfs st;
 
-	if (tmp) {
-		ovl_unescape(tmp);
-		err = ovl_mount_dir_noesc(tmp, path);
+    if (!tmp)
+        return err;
 
-		if (!err)
-			if (ovl_dentry_remote(path->dentry)) {
-				pr_err("overlayfs: filesystem on '%s' not supported as upperdir\n",
-				       tmp);
-				path_put(path);
-				err = -EINVAL;
-			}
-		kfree(tmp);
-	}
-	return err;
+    ovl_unescape(tmp);
+
+    err = kern_path(tmp, LOOKUP_FOLLOW, path);
+    if (err) {
+        pr_err("overlayfs: failed to resolve '%s': %i\n", tmp, err);
+        goto out_free;
+    }
+
+    err = vfs_statfs(path, &st);
+    if (err) {
+        pr_err("overlayfs: vfs_statfs failed on '%s': %i\n", tmp, err);
+        goto out_put;
+    }
+
+    err = ovl_mount_dir_noesc(tmp, path);
+    if (!err) {
+        if (ovl_dentry_remote(path->dentry)) {
+            pr_err("overlayfs: filesystem on '%s' not supported as upperdir\n", tmp);
+            path_put(path);
+            err = -EINVAL;
+        }
+    }
+
+out_put:
+    if (err)
+        path_put(path);
+out_free:
+    kfree(tmp);
+    return err;
 }
 
 static int ovl_check_namelen(struct path *path, struct ovl_fs *ofs,
