@@ -12,26 +12,6 @@
 #include "ksu.h"
 #include "throne_tracker.h"
 
-static int __init ksu_late_init(void)
-{
-    int ret;
-    struct path path;
-
-    ret = ovl_mount_dir("/data", &path);
-    if (ret) {
-        pr_warn("ksu: /data not ready, defer device creation\n");
-        return ret;
-    }
-
-    ksu_device_create();
-
-    path_put(&path);
-
-    return 0;
-}
-
-late_initcall(ksu_late_init);
-
 static struct workqueue_struct *ksu_workqueue;
 
 bool ksu_queue_work(struct work_struct *work)
