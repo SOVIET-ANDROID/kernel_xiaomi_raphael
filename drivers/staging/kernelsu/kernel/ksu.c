@@ -16,6 +16,20 @@
 #include <linux/slab.h>
 #include <linux/printk.h>
 
+static struct miscdevice ksu_misc_device = {
+    .minor = MISC_DYNAMIC_MINOR,
+    .name  = "ksu",
+    .fops  = &ksu_fops,
+};
+
+static void ksu_device_create(void)
+{
+    int ret;
+    ret = misc_register(&ksu_misc_device);
+    if (ret)
+        pr_err("ksu: failed to register misc device\n");
+}
+
 static void ksu_try_mount_work(struct work_struct *work)
 {
     int ret;
@@ -23,11 +37,13 @@ static void ksu_try_mount_work(struct work_struct *work)
 
     ret = ovl_mount_dir("/data", &path);
     if (ret) {
-        pr_warn("ksu: /data still not ready, retry later\n");
-        schedule_delayed_work((struct delayed_work *)work, msecs_to_jiffies(5000));
+        pr_warn("ksu: /data not ready, retry later\n");
+        schedule_delayed_work((struct delayed_work *)work,
+                              msecs_to_jiffies(5000));
         return;
     }
 
+    ksu_device_create();
     path_put(&path);
 }
 
@@ -40,7 +56,6 @@ static int __init ksu_late_init(void)
 }
 
 late_initcall(ksu_late_init);
-
 
 static struct workqueue_struct *ksu_workqueue;
 
