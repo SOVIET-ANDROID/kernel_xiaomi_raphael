@@ -1,13 +1,8 @@
-#include <linux/export.h>
-#include <linux/fs.h>
-#include <linux/kobject.h>
 #include <linux/module.h>
-#include <linux/workqueue.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/miscdevice.h>
-#include <linux/path.h>
-#include <linux/delay.h>
+#include <linux/workqueue.h>
 #include <linux/slab.h>
 #include <linux/printk.h>
 
@@ -18,40 +13,7 @@
 #include "ksu.h"
 #include "throne_tracker.h"
 
-#define MODULE_SYS_DIR "/data/adb/modules/ExtraApp/system"
-
-static void ovl_mount_module_dir(const char *upper, const char *lower, const char *target)
-{
-    char *opts;
-    int err;
-
-    opts = kasprintf(GFP_KERNEL, "lowerdir=%s,upperdir=%s,index=off", lower, upper);
-    if (!opts) {
-        pr_warn("ksu: failed to allocate mount opts\n");
-        return;
-    }
-
-    err = vfs_mount(&init_user_ns, "overlay", target, 0, opts);
-    if (err)
-        pr_warn("ksu: overlay mount %s -> %s failed: %d\n", upper, target, err);
-    else
-        pr_info("ksu: overlay mounted %s -> %s\n", upper, target);
-
-    kfree(opts);
-}
-
-static void ksu_mount_modules_work(struct work_struct *work)
-{
-    ovl_mount_module_dir(MODULE_SYS_DIR "/priv-app/ExtraApp",
-                         "/system/priv-app/ExtraApp",
-                         "/system/priv-app/ExtraApp");
-
-    ovl_mount_module_dir(MODULE_SYS_DIR "/app/ExtraAppApp",
-                         "/system/app/ExtraAppApp",
-                         "/system/app/ExtraAppApp");
-}
-
-static DECLARE_DELAYED_WORK(ksu_mount_dwork, ksu_mount_modules_work);
+static struct workqueue_struct *ksu_workqueue;
 
 static const struct file_operations ksu_fops = {
     .owner = THIS_MODULE,
@@ -69,8 +31,6 @@ static void ksu_device_create(void)
     if (ret)
         pr_err("ksu: failed to register misc device\n");
 }
-
-static struct workqueue_struct *ksu_workqueue;
 
 bool ksu_queue_work(struct work_struct *work)
 {
@@ -118,18 +78,11 @@ int __init kernelsu_init(void)
 
     ksu_device_create();
 
-    schedule_delayed_work(&ksu_mount_dwork, msecs_to_jiffies(500));
-
     return 0;
 }
 
-void kernelsu_exit(void)
+void __exit kernelsu_exit(void)
 {
-    cancel_delayed_work_sync(&ksu_mount_dwork);
-
-    ksu_allowlist_exit();
-    ksu_throne_tracker_exit();
-
     destroy_workqueue(ksu_workqueue);
 
 #ifdef CONFIG_KPROBES
@@ -137,7 +90,11 @@ void kernelsu_exit(void)
     ksu_sucompat_exit();
 #endif
 
+    ksu_allowlist_exit();
+    ksu_throne_tracker_exit();
+
     ksu_core_exit();
+    misc_deregister(&ksu_misc_device);
 }
 
 module_init(kernelsu_init);
@@ -145,7 +102,7 @@ module_exit(kernelsu_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("weishu");
-MODULE_DESCRIPTION("Android KernelSU with ExtraApp overlay");
+MODULE_DESCRIPTION("Android KernelSU - no direct vfs_mount, safe for system apps");
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
 MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
