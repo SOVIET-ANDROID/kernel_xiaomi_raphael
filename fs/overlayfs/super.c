@@ -626,7 +626,7 @@ out:
 	return err;
 }
 
-static int ovl_mount_dir(const char *name, struct path *path)
+int ovl_mount_dir(const char *name, struct path *path)
 {
     int err = -ENOMEM;
     char *tmp = kstrdup(name, GFP_KERNEL);
