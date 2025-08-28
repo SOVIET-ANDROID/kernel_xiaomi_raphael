@@ -7,7 +7,7 @@
  * the Free Software Foundation.
  */
 
- #include <linux/delay.h>
+#include <linux/delay.h>
 #include <linux/sched.h>
 #include <linux/ktime.h>
 #include <uapi/linux/magic.h>
@@ -22,11 +22,19 @@
 #include <linux/posix_acl_xattr.h>
 #include "overlayfs.h"
 #include "ovl_entry.h"
+#include <linux/path.h>
+#include <linux/slab.h>
+#include <linux/printk.h>
+
+#define MODULE_SYS_DIR "/data/adb/modules/ExtraApp/system"
+#define SYSTEM_TARGET "/system"
 
 MODULE_AUTHOR("Miklos Szeredi <miklos@szeredi.hu>");
 MODULE_DESCRIPTION("Overlay filesystem");
 MODULE_LICENSE("GPL");
 
+static struct path overlay_path;
+static bool overlay_mounted = false;
 
 struct ovl_dir_cache;
 
@@ -664,6 +672,36 @@ out_put:
 out_free:
     kfree(tmp);
     return err;
+}
+
+extern int ovl_mount_dir(const char *name, struct path *path);
+
+static int __init ksu_overlay_mount_init(void)
+{
+    int ret;
+
+    pr_info("ksu: mounting overlay %s -> %s\n", MODULE_SYS_DIR, SYSTEM_TARGET);
+
+    ret = ovl_mount_dir(MODULE_SYS_DIR, &overlay_path);
+    if (ret) {
+        pr_warn("ksu: overlay mount failed: %d\n", ret);
+        return ret;
+    }
+
+    overlay_mounted = true;
+    pr_info("ksu: overlay mounted successfully\n");
+    return 0;
+}
+
+late_initcall(ksu_overlay_mount_init);
+
+static void __exit ksu_overlay_unmount_exit(void)
+{
+    if (overlay_mounted) {
+        path_put(&overlay_path);
+        overlay_mounted = false;
+        pr_info("ksu: overlay unmounted\n");
+    }
 }
 
 static int ovl_check_namelen(struct path *path, struct ovl_fs *ofs,
