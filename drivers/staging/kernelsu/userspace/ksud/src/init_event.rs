@@ -40,7 +40,7 @@ pub fn mount_modules_systemlessly(module_dir: &str) -> Result<()> {
         bail!("open {} failed", defs::MODULE_DIR);
     };
 
-    let mut system_lowerdir: Vec<String> = Vec::new();
+    let mut system_lowerdir: Vec<String> = vec!["/system".to_string()];
 
     let partition = vec!["vendor", "product", "system_ext", "odm", "oem"];
     let mut partition_lowerdir: HashMap<String, Vec<String>> = HashMap::new();
@@ -70,8 +70,6 @@ pub fn mount_modules_systemlessly(module_dir: &str) -> Result<()> {
         }
 
         for part in &partition {
-            // if /partition is a mountpoint, we would move it to $MODPATH/$partition when install
-            // otherwise it must be a symlink and we don't need to overlay!
             let part_path = Path::new(&module).join(part);
             if part_path.is_dir() {
                 if let Some(v) = partition_lowerdir.get_mut(*part) {
@@ -81,7 +79,7 @@ pub fn mount_modules_systemlessly(module_dir: &str) -> Result<()> {
         }
     }
 
-    // mount /system first
+    // mount /system overlay
     if let Err(e) = mount_partition("system", &system_lowerdir) {
         warn!("mount system failed: {:#}", e);
     }
@@ -95,6 +93,7 @@ pub fn mount_modules_systemlessly(module_dir: &str) -> Result<()> {
 
     Ok(())
 }
+
 
 pub fn on_post_data_fs() -> Result<()> {
     ksucalls::report_post_fs_data();
