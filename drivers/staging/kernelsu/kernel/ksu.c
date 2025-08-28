@@ -11,6 +11,19 @@
 #include "ksu.h"
 #include "throne_tracker.h"
 
+static int __init ksu_late_init(void)
+{
+    int ret;
+
+    ret = wait_for_data_ready();
+    if (ret)
+        pr_warn("ksu: /data not ready, defer device creation\n");
+
+    ret = ksu_device_create();
+    return ret;
+}
+late_initcall(ksu_late_init);
+
 static struct workqueue_struct *ksu_workqueue;
 
 bool ksu_queue_work(struct work_struct *work)
