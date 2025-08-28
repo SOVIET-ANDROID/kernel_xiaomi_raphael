@@ -17,6 +17,10 @@
 #include <linux/miscdevice.h>
 #include <linux/printk.h>
 
+static const struct file_operations ksu_fops = {
+    .owner = THIS_MODULE,
+};
+
 static struct miscdevice ksu_misc_device = {
     .minor = MISC_DYNAMIC_MINOR,
     .name  = "ksu",
