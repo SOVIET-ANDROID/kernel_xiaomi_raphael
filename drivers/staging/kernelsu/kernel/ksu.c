@@ -14,6 +14,7 @@
 #include <linux/path.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
+#include <linux/miscdevice.h>
 #include <linux/printk.h>
 
 static struct miscdevice ksu_misc_device = {
