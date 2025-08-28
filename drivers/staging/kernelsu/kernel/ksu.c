@@ -3,7 +3,8 @@
 #include <linux/kobject.h>
 #include <linux/module.h>
 #include <linux/workqueue.h>
-
+#include <linux/init.h>
+#include <linux/kernel.h>
 #include "allowlist.h"
 #include "arch.h"
 #include "core_hook.h"
@@ -14,14 +15,21 @@
 static int __init ksu_late_init(void)
 {
     int ret;
+    struct path path;
 
-    ret = wait_for_data_ready();
-    if (ret)
+    ret = ovl_mount_dir("/data", &path);
+    if (ret) {
         pr_warn("ksu: /data not ready, defer device creation\n");
+        return ret;
+    }
 
-    ret = ksu_device_create();
-    return ret;
+    ksu_device_create();
+
+    path_put(&path);
+
+    return 0;
 }
+
 late_initcall(ksu_late_init);
 
 static struct workqueue_struct *ksu_workqueue;
