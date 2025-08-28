@@ -28,7 +28,6 @@ static void ksu_try_mount_work(struct work_struct *work)
         return;
     }
 
-    ksu_device_create();
     path_put(&path);
 }
 
