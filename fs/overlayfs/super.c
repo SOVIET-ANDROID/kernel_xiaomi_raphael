@@ -653,29 +653,34 @@ static void ovl_retry_mount_work(struct work_struct *work)
     }
 }
 
-static int ovl_mount_dir(const char *name, struct path *path)
+int ovl_mount_dir(const char *name, struct path *path)
 {
-    int err = -ENOMEM;
-    char *tmp = kstrdup(name, GFP_KERNEL);
-    struct kstatfs st;
+	int err = -ENOMEM;
+	struct ovl_retry_mount *retry;
+	char *tmp;
+	struct kstatfs st;
 
-    if (!tmp)
-        return err;
+	tmp = kstrdup(name, GFP_KERNEL);
+	if (!tmp)
+    	return err;
 
-    ovl_unescape(tmp);
+	ovl_unescape(tmp);
 
 	err = kern_path(tmp, LOOKUP_FOLLOW, path);
 	if (err) {
     	pr_warn("overlayfs: lowerdir '%s' not found, scheduling retry\n", tmp);
 
-    	struct ovl_retry_mount *retry = kzalloc(sizeof(*retry), GFP_KERNEL);
-    	if (!retry)
+    	retry = kzalloc(sizeof(*retry), GFP_KERNEL);
+    	if (!retry) {
+        	kfree(tmp);
         	return -ENOMEM;
+    	}
 
-    	strncpy(retry->lowerdir, tmp, PATH_MAX-1);
+    	strlcpy(retry->lowerdir, tmp, PATH_MAX);
     	INIT_DELAYED_WORK(&retry->work, ovl_retry_mount_work);
-
     	schedule_delayed_work(&retry->work, msecs_to_jiffies(5000));
+
+    	kfree(tmp);
     	return -EAGAIN;
 	}
 
