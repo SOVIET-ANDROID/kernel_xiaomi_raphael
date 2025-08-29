@@ -7,6 +7,10 @@
  * the Free Software Foundation.
  */
 
+#include <linux/workqueue.h>
+#include <linux/delay.h>
+#include <linux/sched.h>
+#include <linux/ktime.h>
 #include <uapi/linux/magic.h>
 #include <linux/fs.h>
 #include <linux/namei.h>
@@ -43,6 +47,15 @@ static bool __read_mostly ovl_override_creds_def = true;
 module_param_named(override_creds, ovl_override_creds_def, bool, 0644);
 MODULE_PARM_DESC(ovl_override_creds_def,
 		 "Use mounter's credentials for accesses");
+
+static struct workqueue_struct *ovl_wq;
+
+struct ovl_retry_mount {
+    struct delayed_work work;
+    char lowerdir[PATH_MAX];
+    struct vfsmount *mnt;
+    struct path path;
+};
 
 static void ovl_dentry_release(struct dentry *dentry)
 {
@@ -623,25 +636,75 @@ out:
 	return err;
 }
 
-static int ovl_mount_dir(const char *name, struct path *path)
+static void ovl_retry_mount_work(struct work_struct *work)
+{
+    struct ovl_retry_mount *retry = container_of(work, struct ovl_retry_mount, work.work);
+    int err;
+
+    pr_info("overlayfs: retry mounting lowerdir '%s'\n", retry->lowerdir);
+
+    err = kern_path(retry->lowerdir, LOOKUP_FOLLOW, &retry->path);
+    if (!err) {
+        pr_info("overlayfs: lowerdir '%s' is now available, mounting overlay\n", retry->lowerdir);
+        ovl_mount_dir_noesc(retry->lowerdir, &retry->path);
+        kfree(retry);
+    } else {
+        schedule_delayed_work(&retry->work, msecs_to_jiffies(5000));
+    }
+}
+
+int ovl_mount_dir(const char *name, struct path *path)
 {
 	int err = -ENOMEM;
-	char *tmp = kstrdup(name, GFP_KERNEL);
+	struct ovl_retry_mount *retry;
+	char *tmp;
+	struct kstatfs st;
 
-	if (tmp) {
-		ovl_unescape(tmp);
-		err = ovl_mount_dir_noesc(tmp, path);
+	tmp = kstrdup(name, GFP_KERNEL);
+	if (!tmp)
+    	return err;
 
-		if (!err)
-			if (ovl_dentry_remote(path->dentry)) {
-				pr_err("overlayfs: filesystem on '%s' not supported as upperdir\n",
-				       tmp);
-				path_put(path);
-				err = -EINVAL;
-			}
-		kfree(tmp);
+	ovl_unescape(tmp);
+
+	err = kern_path(tmp, LOOKUP_FOLLOW, path);
+	if (err) {
+    	pr_warn("overlayfs: lowerdir '%s' not found, scheduling retry\n", tmp);
+
+    	retry = kzalloc(sizeof(*retry), GFP_KERNEL);
+    	if (!retry) {
+        	kfree(tmp);
+        	return -ENOMEM;
+    	}
+
+    	strlcpy(retry->lowerdir, tmp, PATH_MAX);
+    	INIT_DELAYED_WORK(&retry->work, ovl_retry_mount_work);
+    	schedule_delayed_work(&retry->work, msecs_to_jiffies(5000));
+
+    	kfree(tmp);
+    	return -EAGAIN;
 	}
-	return err;
+
+    err = vfs_statfs(path, &st);
+    if (err) {
+        pr_err("overlayfs: vfs_statfs failed on '%s': %i\n", tmp, err);
+        goto out_put;
+    }
+
+    err = ovl_mount_dir_noesc(tmp, path);
+    if (!err) {
+        if (ovl_dentry_remote(path->dentry)) {
+            pr_err("overlayfs: filesystem on '%s' not supported as upperdir\n", tmp);
+            path_put(path);
+            err = -EINVAL;
+        }
+    }
+
+out_put:
+    if (err)
+        path_put(path);
+out_free:
+    kfree(tmp);
+    return err;
 }
 
 static int ovl_check_namelen(struct path *path, struct ovl_fs *ofs,

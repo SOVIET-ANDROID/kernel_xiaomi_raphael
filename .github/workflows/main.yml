@@ -1,35 +1,96 @@
-name: Build on Tag
- 
+name: Continues testing
+
 on:
   push:
-    tags: '*'
+  workflow_dispatch:
+  pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      KBUILD_BUILD_USER: NATO66613
+      KBUILD_BUILD_HOST: KREMLIN
     steps:
-    - name: Checkout kernel source
-      uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
-    - name: Checkout zipper
-      uses: actions/checkout@v2
-      with:
-        repository: SOVIET-ANDROID/AnyKernel3
-        path: zipper
+      - name: Set up ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          create-symlink: true
+          key: kernel-build-cache
+          restore-keys: |
+            kernel-build-cache
+          max-size: '10G'
 
-    - name: Android kernel build
-      uses: lemniskett/android-kernel-actions@master
-      id: build
-      env:
-        NAME: PENTAGON
-      with:
-        arch: arm64
-        compiler: aosp-clang/master/clang-r487747c
-        defconfig: raphael_defconfig
-        image: Image.gz-dtb
+      - name: Restore toolchain cache
+        id: restore-clang
+        uses: actions/cache/restore@v4
+        with:
+          path: /home/runner/r547379
+          key: clang-r547379
 
-    - name: Release build
-      uses: ncipollo/release-action@v1
-      with:
-        artifacts: ${{ steps.build.outputs.outfile }}
-        token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential ccache curl flex libelf-dev libncurses-dev libssl-dev unzip zip wget libarchive-tools
+          
+          ccache --show-stats
+
+      - name: Deploy Clang
+        if: steps.restore-clang.outputs.cache-hit != 'true'
+        run: |
+          git clone https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r547379.git /home/runner/r547379 --depth=1
+
+      - name: Save clang
+        if: steps.restore-clang.outputs.cache-hit != 'true'
+        id: cache-clang-save
+        uses: actions/cache/save@v4
+        with:
+          path: /home/runner/r547379
+          key: clang-r547379
+
+      - name: Build the kernel with `ccache`
+        run: |
+          export CLANG_PATH=$HOME/r547379/bin
+          export PATH=${CLANG_PATH}:${PATH}
+          
+          # Use ccache explicitly
+          make LLVM=1 LLVM_IAS=1 CC="ccache clang" raphael_defconfig
+          make LLVM=1 LLVM_IAS=1 CC="ccache clang" -j$(grep -c ^processor /proc/cpuinfo)
+
+          # Show ccache stats after build
+          ccache --show-stats
+          ccache --show-config
+        shell: bash
+
+      - name: Repack Kernel Artifacts
+        run: |
+          git clone --depth=1 https://github.com/SOVIET-ANDROID/AnyKernel3.git $HOME/AnyKernel3
+          cp out/arch/arm64/boot/Image.gz-dtb $HOME/AnyKernel3/
+          cp out/arch/arm64/boot/dtbo.img $HOME/AnyKernel3/
+
+          # Determine branch name and commit hash (first 6 characters)
+          BRANCH=$(echo "${GITHUB_REF#refs/heads/}" | sed 's|/|-|g')
+          COMMIT_HASH=$(echo "$GITHUB_SHA" | cut -c1-6)
+          ZIP_NAME="${BRANCH}-${COMMIT_HASH}.zip"
+          echo $ZIP_NAME
+
+          # Export ZIP_NAME for later steps
+          echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
+
+          # Move entire AnyKernel3 directory to workspace
+          mv "$HOME/AnyKernel3" "$GITHUB_WORKSPACE/AnyKernel3"
+
+          # Verify contents of AnyKernel3 in workspace
+          ls -lah $GITHUB_WORKSPACE/AnyKernel3
+        shell: bash
+
+      - name: Upload Kernel Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ZIP_NAME }}  # Dynamic naming for artifact
+          path: ${{ github.workspace }}/AnyKernel3/

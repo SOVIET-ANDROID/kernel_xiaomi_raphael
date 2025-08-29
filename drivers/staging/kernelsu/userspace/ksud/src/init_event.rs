@@ -34,63 +34,76 @@ fn mount_partition(partition_name: &str, lowerdir: &Vec<String>) -> Result<()> {
 }
 
 pub fn mount_modules_systemlessly(module_dir: &str) -> Result<()> {
-    // construct overlay mount params
-    let dir = std::fs::read_dir(module_dir);
-    let Ok(dir) = dir else {
-        bail!("open {} failed", defs::MODULE_DIR);
-    };
+    use std::collections::HashMap;
+    use std::path::Path;
+    use crate::mount::mount_overlay;
+    use crate::utils::{ensure_dir_exists, restore_syscon};
+
+    let dir = std::fs::read_dir(module_dir)
+        .with_context(|| format!("open {} failed", module_dir))?;
 
     let mut system_lowerdir: Vec<String> = Vec::new();
-
-    let partition = vec!["vendor", "product", "system_ext", "odm", "oem"];
+    let partitions = vec!["vendor", "product", "system_ext", "odm", "oem"];
     let mut partition_lowerdir: HashMap<String, Vec<String>> = HashMap::new();
-    for ele in &partition {
-        partition_lowerdir.insert((*ele).to_string(), Vec::new());
+    for p in &partitions {
+        partition_lowerdir.insert(p.to_string(), Vec::new());
     }
 
     for entry in dir.flatten() {
         let module = entry.path();
-        if !module.is_dir() {
+        if !module.is_dir() { continue; }
+
+        if module.join(defs::DISABLE_FILE_NAME).exists() {
+            info!("module {} is disabled, skip!", module.display());
             continue;
         }
-        let disabled = module.join(defs::DISABLE_FILE_NAME).exists();
-        if disabled {
-            info!("module: {} is disabled, ignore!", module.display());
-            continue;
-        }
-        let skip_mount = module.join(defs::SKIP_MOUNT_FILE_NAME).exists();
-        if skip_mount {
-            info!("module: {} skip_mount exist, skip!", module.display());
+        if module.join(defs::SKIP_MOUNT_FILE_NAME).exists() {
+            info!("module {} skip_mount exists, skip!", module.display());
             continue;
         }
 
-        let module_system = Path::new(&module).join("system");
+        let module_system = module.join("system");
         if module_system.is_dir() {
-            system_lowerdir.push(format!("{}", module_system.display()));
+            system_lowerdir.push(module_system.display().to_string());
         }
 
-        for part in &partition {
-            // if /partition is a mountpoint, we would move it to $MODPATH/$partition when install
-            // otherwise it must be a symlink and we don't need to overlay!
-            let part_path = Path::new(&module).join(part);
+        for p in &partitions {
+            let part_path = module.join(p);
             if part_path.is_dir() {
-                if let Some(v) = partition_lowerdir.get_mut(*part) {
-                    v.push(format!("{}", part_path.display()));
+                if let Some(v) = partition_lowerdir.get_mut(*p) {
+                    v.push(part_path.display().to_string());
                 }
             }
         }
     }
 
-    // mount /system first
-    if let Err(e) = mount_partition("system", &system_lowerdir) {
-        warn!("mount system failed: {:#}", e);
+    // tmpfs upperdir / workdir
+    let upperdir_base = "/data/overlay_upper";
+    let workdir_base = "/data/overlay_work";
+    ensure_dir_exists(upperdir_base)?;
+    ensure_dir_exists(workdir_base)?;
+
+    // mount /system overlay
+    if !system_lowerdir.is_empty() {
+        let upper = format!("{}/system", upperdir_base);
+        let work = format!("{}/system", workdir_base);
+        ensure_dir_exists(&upper)?;
+        ensure_dir_exists(&work)?;
+        mount_overlay("/system", &system_lowerdir, &upper, &work)?;
+        restore_syscon("/system")?;
     }
 
-    // mount other partitions
-    for (k, v) in partition_lowerdir {
-        if let Err(e) = mount_partition(&k, &v) {
-            warn!("mount {k} failed: {:#}", e);
-        }
+    // mount other partitions overlay
+    for (part, lowerdirs) in partition_lowerdir {
+        if lowerdirs.is_empty() { continue; }
+
+        let upper = format!("{}/{}", upperdir_base, part);
+        let work = format!("{}/{}", workdir_base, part);
+        ensure_dir_exists(&upper)?;
+        ensure_dir_exists(&work)?;
+        let mount_point = format!("/{}", part);
+        mount_overlay(&mount_point, &lowerdirs, &upper, &work)?;
+        restore_syscon(&mount_point)?;
     }
 
     Ok(())
