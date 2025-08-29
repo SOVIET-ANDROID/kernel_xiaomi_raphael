@@ -7,6 +7,7 @@
  * the Free Software Foundation.
  */
 
+#include <linux/workqueue.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
 #include <linux/ktime.h>
@@ -22,20 +23,11 @@
 #include <linux/posix_acl_xattr.h>
 #include "overlayfs.h"
 #include "ovl_entry.h"
-#include <linux/path.h>
-#include <linux/slab.h>
-#include <linux/printk.h>
-#include <linux/string.h>
-
-#define MODULE_SYS_DIR "/data/adb/modules/ExtraApp/system"
-#define SYSTEM_TARGET "/system"
 
 MODULE_AUTHOR("Miklos Szeredi <miklos@szeredi.hu>");
 MODULE_DESCRIPTION("Overlay filesystem");
 MODULE_LICENSE("GPL");
 
-static struct path overlay_path;
-static bool overlay_mounted = false;
 
 struct ovl_dir_cache;
 
@@ -55,6 +47,15 @@ static bool __read_mostly ovl_override_creds_def = true;
 module_param_named(override_creds, ovl_override_creds_def, bool, 0644);
 MODULE_PARM_DESC(ovl_override_creds_def,
 		 "Use mounter's credentials for accesses");
+
+static struct workqueue_struct *ovl_wq;
+
+struct ovl_retry_mount {
+    struct delayed_work work;
+    char lowerdir[PATH_MAX];
+    struct vfsmount *mnt;
+    struct path path;
+};
 
 static void ovl_dentry_release(struct dentry *dentry)
 {
@@ -605,59 +606,6 @@ static void ovl_unescape(char *s)
 	}
 }
 
-static void reorder_lowerdirs_to_prioritize(char *buf, const char *prioritize)
-{
-	char *tmp = NULL;
-	char *p, *tok;
-	bool found = false;
-	size_t out_len;
-	char *out = NULL;
-
-	if (!buf || !prioritize)
-		return;
-
-	tmp = kstrdup(buf, GFP_KERNEL);
-	if (!tmp)
-		return;
-
-	p = tmp;
-	while ((tok = strsep(&p, ":")) != NULL) {
-		if (strcmp(tok, prioritize) == 0) {
-			found = true;
-			break;
-		}
-	}
-
-	if (!found) {
-		kfree(tmp);
-		return;
-	}
-
-	out_len = strlen(buf) + 1;
-	out = kmalloc(out_len, GFP_KERNEL);
-	if (!out) {
-		kfree(tmp);
-		return;
-	}
-
-	out[0] = '\0';
-
-	strlcat(out, prioritize, out_len);
-
-	p = tmp;
-	while ((tok = strsep(&p, ":")) != NULL) {
-		if (strcmp(tok, prioritize) == 0)
-			continue;
-		strlcat(out, ":", out_len);
-		strlcat(out, tok, out_len);
-	}
-
-	strlcpy(buf, out, out_len);
-
-	kfree(out);
-	kfree(tmp);
-}
-
 static int ovl_mount_dir_noesc(const char *name, struct path *path)
 {
 	int err = -EINVAL;
@@ -688,7 +636,24 @@ out:
 	return err;
 }
 
-int ovl_mount_dir(const char *name, struct path *path)
+static void ovl_retry_mount_work(struct work_struct *work)
+{
+    struct ovl_retry_mount *retry = container_of(work, struct ovl_retry_mount, work.work);
+    int err;
+
+    pr_info("overlayfs: retry mounting lowerdir '%s'\n", retry->lowerdir);
+
+    err = kern_path(retry->lowerdir, LOOKUP_FOLLOW, &retry->path);
+    if (!err) {
+        pr_info("overlayfs: lowerdir '%s' is now available, mounting overlay\n", retry->lowerdir);
+        ovl_mount_dir_noesc(retry->lowerdir, &retry->path);
+        kfree(retry);
+    } else {
+        schedule_delayed_work(&retry->work, msecs_to_jiffies(5000));
+    }
+}
+
+static int ovl_mount_dir(const char *name, struct path *path)
 {
     int err = -ENOMEM;
     char *tmp = kstrdup(name, GFP_KERNEL);
@@ -699,11 +664,20 @@ int ovl_mount_dir(const char *name, struct path *path)
 
     ovl_unescape(tmp);
 
-    err = kern_path(tmp, LOOKUP_FOLLOW, path);
-    if (err) {
-        pr_err("overlayfs: failed to resolve '%s': %i\n", tmp, err);
-        goto out_free;
-    }
+	err = kern_path(tmp, LOOKUP_FOLLOW, path);
+	if (err) {
+    	pr_warn("overlayfs: lowerdir '%s' not found, scheduling retry\n", tmp);
+
+    	struct ovl_retry_mount *retry = kzalloc(sizeof(*retry), GFP_KERNEL);
+    	if (!retry)
+        	return -ENOMEM;
+
+    	strncpy(retry->lowerdir, tmp, PATH_MAX-1);
+    	INIT_DELAYED_WORK(&retry->work, ovl_retry_mount_work);
+
+    	schedule_delayed_work(&retry->work, msecs_to_jiffies(5000));
+    	return -EAGAIN;
+	}
 
     err = vfs_statfs(path, &st);
     if (err) {
@@ -726,36 +700,6 @@ out_put:
 out_free:
     kfree(tmp);
     return err;
-}
-
-extern int ovl_mount_dir(const char *name, struct path *path);
-
-static int __init ksu_overlay_mount_init(void)
-{
-    int ret;
-
-    pr_info("ksu: mounting overlay %s -> %s\n", MODULE_SYS_DIR, SYSTEM_TARGET);
-
-    ret = ovl_mount_dir(MODULE_SYS_DIR, &overlay_path);
-    if (ret) {
-        pr_warn("ksu: overlay mount failed: %d\n", ret);
-        return ret;
-    }
-
-    overlay_mounted = true;
-    pr_info("ksu: overlay mounted successfully\n");
-    return 0;
-}
-
-late_initcall(ksu_overlay_mount_init);
-
-static void __exit ksu_overlay_unmount_exit(void)
-{
-    if (overlay_mounted) {
-        path_put(&overlay_path);
-        overlay_mounted = false;
-        pr_info("ksu: overlay unmounted\n");
-    }
 }
 
 static int ovl_check_namelen(struct path *path, struct ovl_fs *ofs,
@@ -1090,8 +1034,6 @@ static int ovl_fill_super(struct super_block *sb, void *data, int silent)
 	lowertmp = kstrdup(ufs->config.lowerdir, GFP_KERNEL);
 	if (!lowertmp)
 		goto out_unlock_workdentry;
-
-	reorder_lowerdirs_to_prioritize(lowertmp, SYSTEM_TARGET);
 
 	err = -EINVAL;
 	stacklen = ovl_split_lowerdirs(lowertmp);
