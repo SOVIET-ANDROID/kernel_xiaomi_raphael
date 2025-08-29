@@ -25,6 +25,7 @@
 #include <linux/path.h>
 #include <linux/slab.h>
 #include <linux/printk.h>
+#include <linux/string.h>
 
 #define MODULE_SYS_DIR "/data/adb/modules/ExtraApp/system"
 #define SYSTEM_TARGET "/system"
@@ -604,6 +605,59 @@ static void ovl_unescape(char *s)
 	}
 }
 
+static void reorder_lowerdirs_to_prioritize(char *buf, const char *prioritize)
+{
+	char *tmp = NULL;
+	char *p, *tok;
+	bool found = false;
+	size_t out_len;
+	char *out = NULL;
+
+	if (!buf || !prioritize)
+		return;
+
+	tmp = kstrdup(buf, GFP_KERNEL);
+	if (!tmp)
+		return;
+
+	p = tmp;
+	while ((tok = strsep(&p, ":")) != NULL) {
+		if (strcmp(tok, prioritize) == 0) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		kfree(tmp);
+		return;
+	}
+
+	out_len = strlen(buf) + 1;
+	out = kmalloc(out_len, GFP_KERNEL);
+	if (!out) {
+		kfree(tmp);
+		return;
+	}
+
+	out[0] = '\0';
+
+	strlcat(out, prioritize, out_len);
+
+	p = tmp;
+	while ((tok = strsep(&p, ":")) != NULL) {
+		if (strcmp(tok, prioritize) == 0)
+			continue;
+		strlcat(out, ":", out_len);
+		strlcat(out, tok, out_len);
+	}
+
+	strlcpy(buf, out, out_len);
+
+	kfree(out);
+	kfree(tmp);
+}
+
 static int ovl_mount_dir_noesc(const char *name, struct path *path)
 {
 	int err = -EINVAL;
@@ -1036,6 +1090,8 @@ static int ovl_fill_super(struct super_block *sb, void *data, int silent)
 	lowertmp = kstrdup(ufs->config.lowerdir, GFP_KERNEL);
 	if (!lowertmp)
 		goto out_unlock_workdentry;
+
+	reorder_lowerdirs_to_prioritize(lowertmp, SYSTEM_TARGET);
 
 	err = -EINVAL;
 	stacklen = ovl_split_lowerdirs(lowertmp);
