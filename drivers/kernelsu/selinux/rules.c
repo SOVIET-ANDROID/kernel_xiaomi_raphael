@@ -36,14 +36,19 @@ static struct policydb *get_policydb(void)
 	return db;
 }
 
+static DEFINE_MUTEX(ksu_rules);
+
 void apply_kernelsu_rules()
 {
+	struct policydb *db;
+
 	if (!getenforce()) {
 		pr_info("SELinux permissive or disabled, apply rules!\n");
 	}
 
-	rcu_read_lock();
-	struct policydb *db = get_policydb();
+	mutex_lock(&ksu_rules);
+
+	db = get_policydb();
 
 	ksu_permissive(db, KERNEL_SU_DOMAIN);
 	ksu_typeattribute(db, KERNEL_SU_DOMAIN, "mlstrustedsubject");
@@ -130,11 +135,20 @@ void apply_kernelsu_rules()
 	// Allow all binder transactions
 	ksu_allow(db, ALL, KERNEL_SU_DOMAIN, "binder", ALL);
 
-    // Allow system server kill su process
-    ksu_allow(db, "system_server", KERNEL_SU_DOMAIN, "process", "getpgid");
-    ksu_allow(db, "system_server", KERNEL_SU_DOMAIN, "process", "sigkill");
+	// Allow system server kill su process
+	ksu_allow(db, "system_server", KERNEL_SU_DOMAIN, "process", "getpgid");
+	ksu_allow(db, "system_server", KERNEL_SU_DOMAIN, "process", "sigkill");
 
-	rcu_read_unlock();
+#ifdef CONFIG_KSU_SUSFS
+	// Allow umount in zygote process without installing zygisk
+	ksu_allow(db, "zygote", "labeledfs", "filesystem", "unmount");
+	susfs_set_kernel_sid();
+	susfs_set_init_sid();
+	susfs_set_ksu_sid();
+	susfs_set_zygote_sid();
+#endif
+
+	mutex_unlock(&ksu_rules);
 }
 
 #define MAX_SEPOL_LEN 128
