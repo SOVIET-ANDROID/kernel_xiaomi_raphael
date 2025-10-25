@@ -4923,6 +4923,14 @@ static void lim_process_sme_channel_change_request(struct mac_context *mac_ctx,
 	    session_entry->ch_width == ch_change_req->ch_width) {
 		pe_err("Target channel and mode is same as current channel and mode channel freq %d and mode %d",
 		       session_entry->curr_op_freq, session_entry->ch_width);
+		if (session_entry->bssType == eSIR_MONITOR_MODE) {
+			struct scheduler_msg message = {0};
+			message.type = eWNI_SME_MONITOR_MODE_VDEV_UP;
+			message.bodyval = session_entry->vdev_id;
+			if (QDF_STATUS_SUCCESS != scheduler_post_message(QDF_MODULE_ID_PE, QDF_MODULE_ID_SME, QDF_MODULE_ID_SME, &message)) {
+				pe_err("Failed to post message monitor mode vdev up");
+			}
+		}
 		return;
 	}
 

@@ -4030,6 +4030,8 @@ static uint8_t sme_get_nss_chain_shift(enum QDF_OPMODE device_mode)
 	switch (device_mode) {
 	case QDF_STA_MODE:
 		return STA_NSS_CHAINS_SHIFT;
+	case QDF_MONITOR_MODE:
+		return STA_NSS_CHAINS_SHIFT;
 	case QDF_SAP_MODE:
 		return SAP_NSS_CHAINS_SHIFT;
 	case QDF_P2P_GO_MODE:

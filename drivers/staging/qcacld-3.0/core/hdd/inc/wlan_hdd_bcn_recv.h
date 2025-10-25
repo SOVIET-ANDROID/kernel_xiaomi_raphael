@@ -64,8 +64,8 @@ void hdd_beacon_recv_pause_indication(hdd_handle_t hdd_handle,
 	.flags = WIPHY_VENDOR_CMD_NEED_WDEV |				\
 		 WIPHY_VENDOR_CMD_NEED_NETDEV |				\
 		 WIPHY_VENDOR_CMD_NEED_RUNNING,				\
-	.doit = wlan_hdd_cfg80211_bcn_rcv_op\
-},
+	.doit = wlan_hdd_cfg80211_bcn_rcv_op				\
+}
 
 #define BCN_RECV_FEATURE_VENDOR_EVENTS			\
 [QCA_NL80211_VENDOR_SUBCMD_BEACON_REPORTING_INDEX] = {		\

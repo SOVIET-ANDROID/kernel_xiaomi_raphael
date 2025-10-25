@@ -59,6 +59,7 @@
 #include "ol_fw.h"
 
 #include "wma_internal.h"
+#include "wma_frame_inject.h"
 #include "cdp_txrx_flow_ctrl_legacy.h"
 #include "cdp_txrx_cmn.h"
 #include "cdp_txrx_misc.h"
@@ -1354,6 +1355,21 @@ wma_mgmt_tx_ack_comp_hdlr(void *wma_context, qdf_nbuf_t netbuf, int32_t status)
 	uint8_t vdev_id;
 
 	desc_id = QDF_NBUF_CB_MGMT_TXRX_DESC_ID(netbuf);
+	if (WMA_IS_INJECTION_DESC_ID(desc_id)) {
+		uint32_t mapped_status;
+
+		mapped_status = status ?
+			WMI_MGMT_TX_COMP_TYPE_DISCARD :
+			WMI_MGMT_TX_COMP_TYPE_COMPLETE_OK;
+
+		WMA_LOGI("MGMT TX completion (legacy injection): desc_id=%u raw_status=%d mapped_status=%u",
+			 desc_id, status, mapped_status);
+		wma_handle_injection_fw_response(wma_handle, desc_id,
+						 mapped_status);
+		qdf_nbuf_free(netbuf);
+		return;
+	}
+
 	vdev_id = mgmt_txrx_get_vdev_id(pdev, desc_id);
 
 	mgmt_params.vdev_id = vdev_id;
@@ -1380,6 +1396,9 @@ wma_mgmt_tx_dload_comp_hldr(void *wma_context, qdf_nbuf_t netbuf,
 	void *mac_context = wma_handle->mac_context;
 
 	WMA_LOGD("Tx Complete Status %d", status);
+
+	if (WMA_IS_INJECTION_DESC_ID(QDF_NBUF_CB_MGMT_TXRX_DESC_ID(netbuf)))
+		return;
 
 	if (!wma_handle->tx_frm_download_comp_cb) {
 		WMA_LOGE("Tx Complete Cb not registered by umac");

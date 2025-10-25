@@ -6718,7 +6718,8 @@ static int __wlan_hdd_cfg80211_start_ap(struct wiphy *wiphy,
 
 		hdd_start_tsf_sync(adapter);
 
-		if (wdev->chandef.chan->center_freq !=
+		if (wdev->chandef.chan &&
+		    wdev->chandef.chan->center_freq !=
 				params->chandef.chan->center_freq)
 			params->chandef = wdev->chandef;
 		/*

@@ -878,6 +878,12 @@ ol_txrx_pdev_attach(ol_txrx_soc_handle soc,
 		status = QDF_STATUS_E_NOMEM;
 		goto fail0;
 	}
+	/*
+	 * Ensure deterministic default before WMI service bitmap is available.
+	 * flow-control setup in pdev_post_attach depends on this flag to decide
+	 * whether to create the legacy global mgmt tx pool.
+	 */
+	pdev->is_mgmt_over_wmi_enabled = 0;
 
 	/* init LL/HL cfg here */
 	pdev->cfg.is_high_latency = ol_cfg_is_high_latency(cfg_pdev);

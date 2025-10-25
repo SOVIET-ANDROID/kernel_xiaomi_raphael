@@ -550,11 +550,17 @@ static void wma_handle_monitor_mode_vdev_detach(tp_wma_handle wma,
 						uint8_t vdev_id)
 {
 	struct wma_txrx_node *iface;
+	struct del_bss_resp *resp;
 
 	iface = &wma->interfaces[vdev_id];
-	wlan_vdev_mlme_sm_deliver_evt(iface->vdev,
-				      WLAN_VDEV_SM_EV_DOWN,
-				      0, NULL);
+	resp = qdf_mem_malloc(sizeof(*resp));
+	if (resp) {
+		resp->vdev_id = vdev_id;
+		resp->status = QDF_STATUS_SUCCESS;
+		wlan_vdev_mlme_sm_deliver_evt(iface->vdev,
+					      WLAN_VDEV_SM_EV_DOWN,
+					      sizeof(*resp), resp);
+	}
 	iface->vdev_active = false;
 }
 

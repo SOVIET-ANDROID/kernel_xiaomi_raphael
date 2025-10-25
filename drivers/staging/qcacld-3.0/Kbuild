@@ -206,6 +206,16 @@ ifeq ($(CONFIG_LITHIUM), y)
 HDD_OBJS += $(HDD_SRC_DIR)/wlan_hdd_rx_monitor.o
 endif
 
+ifeq ($(CONFIG_FEATURE_FRAME_INJECTION_SUPPORT), y)
+HDD_OBJS += $(HDD_SRC_DIR)/wlan_hdd_frame_inject.o
+HDD_OBJS += $(HDD_SRC_DIR)/wlan_hdd_frame_validate.o
+HDD_OBJS += $(HDD_SRC_DIR)/wlan_hdd_inject_security.o
+HDD_OBJS += $(HDD_SRC_DIR)/wlan_hdd_frame_inject_debug.o
+ifeq ($(CONFIG_WLAN_UNIT_TEST), y)
+HDD_OBJS += $(HDD_SRC_DIR)/wlan_hdd_frame_validate_test.o
+endif
+endif
+
 ifeq ($(CONFIG_LITHIUM), y)
 CONFIG_WLAN_FEATURE_DP_RX_THREADS := y
 CONFIG_WLAN_FEATURE_RX_SOFTIRQ_TIME_LIMIT := y
@@ -1967,6 +1977,10 @@ WMA_OBJS :=	$(WMA_SRC_DIR)/wma_main.o \
 		$(WMA_SRC_DIR)/wlan_qct_wma_legacy.o\
 		$(WMA_NDP_OBJS)
 
+ifeq ($(CONFIG_FEATURE_FRAME_INJECTION_SUPPORT), y)
+WMA_OBJS += $(WMA_SRC_DIR)/wma_frame_inject.o
+endif
+
 #######DIRECT_BUFFER_RX#########
 ifeq ($(CONFIG_DIRECT_BUF_RX_ENABLE), y)
 DBR_DIR = $(WLAN_COMMON_ROOT)/target_if/direct_buf_rx
@@ -2392,6 +2406,12 @@ ifeq ($(CONFIG_FEATURE_MONITOR_MODE_SUPPORT), y)
 cppflags-y += -DFEATURE_MONITOR_MODE_SUPPORT
 else
 cppflags-y += -DDISABLE_MON_CONFIG
+endif
+
+ifeq ($(CONFIG_FEATURE_FRAME_INJECTION_SUPPORT), y)
+cppflags-y += -DFEATURE_FRAME_INJECTION_SUPPORT
+# Enable monitor mode support for frame injection
+CONFIG_FEATURE_MONITOR_MODE_SUPPORT := y
 endif
 
 #Enable NL80211 test mode
