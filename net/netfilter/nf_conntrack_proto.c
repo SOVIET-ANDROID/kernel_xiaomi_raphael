@@ -28,7 +28,7 @@
 #include <net/netfilter/nf_conntrack_l4proto.h>
 #include <net/netfilter/nf_conntrack_core.h>
 
-static struct nf_conntrack_l4proto __rcu **nf_ct_protos[NFPROTO_NUMPROTO] __read_mostly;
+static const struct nf_conntrack_l4proto __rcu **nf_ct_protos[NFPROTO_NUMPROTO] __read_mostly;
 struct nf_conntrack_l3proto __rcu *nf_ct_l3protos[NFPROTO_NUMPROTO] __read_mostly;
 EXPORT_SYMBOL_GPL(nf_ct_l3protos);
 
@@ -319,11 +319,11 @@ int nf_ct_l4proto_register_one(struct nf_conntrack_l4proto *l4proto)
 	mutex_lock(&nf_ct_proto_mutex);
 	if (!nf_ct_protos[l4proto->l3proto]) {
 		/* l3proto may be loaded latter. */
-		struct nf_conntrack_l4proto __rcu **proto_array;
+		struct nf_conntrack_l4proto __rcu const **proto_array;
 		int i;
 
 		proto_array = kmalloc_array(MAX_NF_CT_PROTO,
-					    sizeof(struct nf_conntrack_l4proto *),
+					    sizeof(const struct nf_conntrack_l4proto *),
 					    GFP_KERNEL);
 		if (proto_array == NULL) {
 			ret = -ENOMEM;
