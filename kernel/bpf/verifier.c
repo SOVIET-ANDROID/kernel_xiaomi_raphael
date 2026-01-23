@@ -156,7 +156,7 @@ struct bpf_call_arg_meta {
 /* verbose verifier prints what it's seeing
  * bpf_check() is called under lock, so no race to access these global vars
  */
-static struct bpf_verifier_log verifier_log;
+static struct bpf_verifer_log verifier_log;
 
 static DEFINE_MUTEX(bpf_verifier_lock);
 
@@ -166,7 +166,7 @@ static DEFINE_MUTEX(bpf_verifier_lock);
  */
 static __printf(1, 2) void verbose(const char *fmt, ...)
 {
-	struct bpf_verifier_log *log = &verifier_log;
+	struct bpf_verifer_log *log = &verifier_log;
 	va_list args;
 
 	if (!log->level || bpf_verifier_log_full(log))
@@ -5081,7 +5081,7 @@ static void free_states(struct bpf_verifier_env *env)
 
 int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
 {
-	struct bpf_verifier_log *log = &verifier_log;
+	struct bpf_verifer_log *log = &verifier_log;
 	struct bpf_verifier_env *env;
 	int ret = -EINVAL;
 
