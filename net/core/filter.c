@@ -2618,10 +2618,7 @@ static int xdp_do_redirect_map(struct net_device *dev, struct xdp_buff *xdp,
 		goto err;
 	}
 
-	if (map->map_type == BPF_MAP_TYPE_DEVMAP)
-		fwd = __dev_map_lookup_elem(map, index);
-	else if (map->map_type == BPF_MAP_TYPE_DEVMAP_HASH)
-		fwd = __dev_map_hash_lookup_elem(map, index);
+	fwd = __dev_map_lookup_elem(map, index);
 	if (!fwd) {
 		err = -EINVAL;
 		goto err;
@@ -2692,10 +2689,7 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
 			map = NULL;
 			goto err;
 		}
-		if (map->map_type == BPF_MAP_TYPE_DEVMAP)
-			fwd = __dev_map_lookup_elem(map, index);
-		else if (map->map_type == BPF_MAP_TYPE_DEVMAP_HASH)
-			fwd = __dev_map_hash_lookup_elem(map, index);
+		fwd = __dev_map_lookup_elem(map, index);
 	} else {
 		fwd = dev_get_by_index_rcu(dev_net(dev), index);
 	}
