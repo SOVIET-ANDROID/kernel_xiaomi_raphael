@@ -160,55 +160,21 @@ static struct bpf_verifier_log verifier_log;
 
 static DEFINE_MUTEX(bpf_verifier_lock);
 
-void bpf_verifier_vlog(struct bpf_verifier_log *log,
-		       const char *fmt, va_list args)
-{
-	unsigned int n;
-
-	n = vscnprintf(log->kbuf, BPF_VERIFIER_TMP_LOG_SIZE, fmt, args);
-
-	WARN_ONCE(n >= BPF_VERIFIER_TMP_LOG_SIZE - 1,
-		  "verifier log line truncated - local buffer too short\n");
-
-	n = min(log->len_total - log->len_used - 1, n);
-	log->kbuf[n] = '\0';
-
-	if (!copy_to_user(log->ubuf + log->len_used, log->kbuf, n + 1))
-		log->len_used += n;
-	else
-		log->ubuf = NULL;
-}
-
 /* log_level controls verbosity level of eBPF verifier.
- * bpf_verifier_log_write() is used to dump the verification trace to the log,
- * so the user can figure out what's wrong with the program
- */
-__printf(2, 3) void bpf_verifier_log_write(struct bpf_verifier_log *log,
-						  const char *fmt, ...)
-{
-	va_list args;
-
-	if (!bpf_verifier_log_needed(log))
-		return;
-
-	va_start(args, fmt);
-	bpf_verifier_vlog(log, fmt, args);
-	va_end(args);
-}
-EXPORT_SYMBOL_GPL(bpf_verifier_log_write);
-/* Historically bpf_verifier_log_write was called verbose, but the name was too
- * generic for symbol export. The function was renamed, but not the calls in
- * the verifier to avoid complicating backports. Hence the alias below.
+ * verbose() is used to dump the verification trace to the log, so the user
+ * can figure out what's wrong with the program
  */
 static __printf(1, 2) void verbose(const char *fmt, ...)
 {
+	struct bpf_verifier_log *log = &verifier_log;
 	va_list args;
 
-	if (!bpf_verifier_log_needed(&verifier_log))
+	if (!log->level || bpf_verifier_log_full(log))
 		return;
 
 	va_start(args, fmt);
-	bpf_verifier_vlog(&verifier_log, fmt, args);
+	log->len_used += vscnprintf(log->kbuf + log->len_used,
+				    log->len_total - log->len_used, fmt, args);
 	va_end(args);
 }
 
@@ -5151,6 +5117,9 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
 			goto err_unlock;
 
 		ret = -ENOMEM;
+		log->kbuf = vmalloc(log->len_total);
+		if (!log->kbuf)
+			goto err_unlock;
 	} else {
 		log->level = 0;
 	}
@@ -5197,12 +5166,17 @@ skip_full_check:
 		ret = fixup_bpf_calls(env);
 
 	if (log->level && bpf_verifier_log_full(log)) {
+		BUG_ON(log->len_used >= log->len_total);
+		/* verifier log exceeded user supplied buffer */
 		ret = -ENOSPC;
+		/* fall through to return what was recorded */
 	}
 
-	if (log->level && !log->ubuf) {
+	/* copy verifier log back to user space including trailing zero */
+	if (log->level && copy_to_user(log->ubuf, log->kbuf,
+				       log->len_used + 1) != 0) {
 		ret = -EFAULT;
-		goto err_release_maps;
+		goto free_log_buf;
 	}
 
 	if (ret == 0 && env->used_map_cnt) {
@@ -5213,7 +5187,7 @@ skip_full_check:
 
 		if (!env->prog->aux->used_maps) {
 			ret = -ENOMEM;
-			goto err_release_maps;
+			goto free_log_buf;
 		}
 
 		memcpy(env->prog->aux->used_maps, env->used_maps,
@@ -5226,7 +5200,9 @@ skip_full_check:
 		convert_pseudo_ld_imm64(env);
 	}
 
-err_release_maps:
+free_log_buf:
+	if (log->level)
+		vfree(log->kbuf);
 	if (!env->prog->aux->used_maps)
 		/* if we didn't copy map pointers into bpf_prog_info, release
 		 * them now. Otherwise free_used_maps() will release them.
