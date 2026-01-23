@@ -6,7 +6,9 @@
 #include <linux/types.h>
 
 #define BTF_MAGIC	0xeB9F
+#define BTF_MAGIC_SWAP	0x9FeB
 #define BTF_VERSION	1
+#define BTF_FLAGS_COMPR	0x01
 
 struct btf_header {
 	__u16	magic;
@@ -41,7 +43,7 @@ struct btf_header {
 #define BTF_STR_OFFSET(ref)	((ref) & BTF_MAX_NAME_OFFSET)
 
 struct btf_type {
-	__u32 name_off;
+	__u32 name;
 	/* "info" bits arrangement
 	 * bits  0-15: vlen (e.g. # of struct's members)
 	 * bits 16-23: unused
@@ -103,7 +105,7 @@ struct btf_type {
  * info in "struct btf_type").
  */
 struct btf_enum {
-	__u32	name_off;
+	__u32	name;
 	__s32	val;
 };
 
@@ -120,7 +122,7 @@ struct btf_array {
  * "struct btf_type").
  */
 struct btf_member {
-	__u32	name_off;
+	__u32	name;
 	__u32	type;
 	__u32	offset;	/* offset in bits */
 };
