@@ -1473,9 +1473,9 @@ static s32 btf_struct_check_meta(struct btf_verifier_env *env,
 {
 	bool is_union = BTF_INFO_KIND(t->info) == BTF_KIND_UNION;
 	const struct btf_member *member;
-	u32 meta_needed, last_offset;
 	struct btf *btf = env->btf;
 	u32 struct_size = t->size;
+	u32 meta_needed;
 	u16 i;
 
 	meta_needed = btf_type_vlen(t) * sizeof(*member);
@@ -1488,7 +1488,6 @@ static s32 btf_struct_check_meta(struct btf_verifier_env *env,
 
 	btf_verifier_log_type(env, t, NULL);
 
-	last_offset = 0;
 	for_each_member(i, t, member) {
 		if (!btf_name_offset_valid(btf, member->name_off)) {
 			btf_verifier_log_member(env, t, member,
@@ -1510,16 +1509,6 @@ static s32 btf_struct_check_meta(struct btf_verifier_env *env,
 			return -EINVAL;
 		}
 
-		/*
-		 * ">" instead of ">=" because the last member could be
-		 * "char a[0];"
-		 */
-		if (last_offset > member->offset) {
-			btf_verifier_log_member(env, t, member,
-						"Invalid member bits_offset");
-			return -EINVAL;
-		}
-
 		if (BITS_ROUNDUP_BYTES(member->offset) > struct_size) {
 			btf_verifier_log_member(env, t, member,
 						"Memmber bits_offset exceeds its struct size");
@@ -1527,7 +1516,6 @@ static s32 btf_struct_check_meta(struct btf_verifier_env *env,
 		}
 
 		btf_verifier_log_member(env, t, member, NULL);
-		last_offset = member->offset;
 	}
 
 	return meta_needed;
