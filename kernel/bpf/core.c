@@ -1508,19 +1508,13 @@ struct bpf_prog *bpf_prog_select_runtime(struct bpf_prog *fp, int *err)
 	 * valid program, which in this case would simply not
 	 * be JITed, but falls back to the interpreter.
 	 */
-	if (!bpf_prog_is_dev_bound(fp->aux)) {
-		fp = bpf_int_jit_compile(fp);
+	fp = bpf_int_jit_compile(fp);
 #ifdef CONFIG_BPF_JIT_ALWAYS_ON
-		if (!fp->jited) {
-			*err = -ENOTSUPP;
-			return fp;
-		}
-#endif
-	} else {
-		*err = bpf_prog_offload_compile(fp);
-		if (*err)
-			return fp;
+	if (!fp->jited) {
+		*err = -ENOTSUPP;
+		return fp;
 	}
+#endif
 	bpf_prog_lock_ro(fp);
 
 	/* The tail call compatibility check can only be done at
@@ -1651,8 +1645,6 @@ static void bpf_prog_free_deferred(struct work_struct *work)
 	struct bpf_prog_aux *aux;
 
 	aux = container_of(work, struct bpf_prog_aux, work);
-	if (bpf_prog_is_dev_bound(aux))
-		bpf_prog_offload_destroy(aux->prog);
 	bpf_jit_free(aux->prog);
 }
 

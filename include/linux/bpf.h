@@ -15,7 +15,6 @@
 #include <linux/err.h>
 #include <linux/rbtree_latch.h>
 #include <linux/numa.h>
-#include <linux/wait.h>
 
 struct perf_event;
 struct bpf_prog;
@@ -194,16 +193,6 @@ struct bpf_verifier_ops {
 			union bpf_attr __user *uattr);
 };
 
-struct bpf_dev_offload {
-	struct bpf_prog		*prog;
-	struct net_device	*netdev;
-	void			*dev_priv;
-	struct list_head	offloads;
-	bool			dev_state;
-	bool			verifier_running;
-	wait_queue_head_t	verifier_done;
-};
-
 struct bpf_prog_aux {
 	atomic_t refcnt;
 	u32 used_map_cnt;
@@ -221,7 +210,6 @@ struct bpf_prog_aux {
 #endif
 	u64 load_time; /* ns since boottime */
 	char name[BPF_OBJ_NAME_LEN];
-	struct bpf_dev_offload *offload;
 	union {
 		struct work_struct work;
 		struct rcu_head	rcu;
@@ -339,8 +327,6 @@ extern const struct file_operations bpf_prog_fops;
 #include <linux/bpf_types.h>
 #undef BPF_PROG_TYPE
 #undef BPF_MAP_TYPE
-
-extern const struct bpf_verifier_ops bpf_offload_prog_ops;
 
 struct bpf_prog *bpf_prog_get(u32 ufd);
 struct bpf_prog *bpf_prog_get_type(u32 ufd, enum bpf_prog_type type);
@@ -501,29 +487,6 @@ static inline bool unprivileged_ebpf_enabled(void)
 }
 
 #endif /* CONFIG_BPF_SYSCALL */
-
-int bpf_prog_offload_compile(struct bpf_prog *prog);
-void bpf_prog_offload_destroy(struct bpf_prog *prog);
-
-#if defined(CONFIG_NET) && defined(CONFIG_BPF_SYSCALL)
-int bpf_prog_offload_init(struct bpf_prog *prog, union bpf_attr *attr);
-
-static inline bool bpf_prog_is_dev_bound(struct bpf_prog_aux *aux)
-{
-	return aux->offload;
-}
-#else
-static inline int bpf_prog_offload_init(struct bpf_prog *prog,
-					union bpf_attr *attr)
-{
-	return -EOPNOTSUPP;
-}
-
-static inline bool bpf_prog_is_dev_bound(struct bpf_prog_aux *aux)
-{
-	return false;
-}
-#endif /* CONFIG_NET && CONFIG_BPF_SYSCALL */
 
 #if defined(CONFIG_STREAM_PARSER) && defined(CONFIG_BPF_SYSCALL)
 struct sock  *__sock_map_lookup_elem(struct bpf_map *map, u32 key);
