@@ -1798,7 +1798,7 @@ static int btf_check_all_metas(struct btf_verifier_env *env)
 
 	hdr = &btf->hdr;
 	cur = btf->nohdr_data + hdr->type_off;
-	end = cur + hdr->type_len;
+	end = btf->nohdr_data + hdr->type_len;
 
 	env->log_type_id = 1;
 	while (cur < end) {
