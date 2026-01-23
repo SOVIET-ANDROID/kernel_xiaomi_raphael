@@ -486,6 +486,7 @@ struct bpf_prog {
 				cb_access:1,	/* Is control block accessed? */
 				dst_needed:1;	/* Do we need dst entry? */
 	enum bpf_prog_type	type;		/* Type of BPF program */
+	enum bpf_attach_type	expected_attach_type; /* For some prog types */
 	u32			len;		/* Number of filter blocks */
 	u32			jited_len;	/* Size of jited insns in bytes */
 	u8			tag[BPF_TAG_SIZE];
@@ -1042,6 +1043,17 @@ static inline int bpf_tell_extensions(void)
 {
 	return SKF_AD_MAX;
 }
+
+struct bpf_sock_addr_kern {
+	struct sock *sk;
+	struct sockaddr *uaddr;
+	/* Temporary "register" to make indirect stores to nested structures
+	 * defined above. We need three registers to make such a store, but
+	 * only two (src and dst) are available at convert_ctx_access time
+	 */
+	u64 tmp_reg;
+	void *t_ctx;	/* Attach type specific context. */
+};
 
 struct bpf_sock_ops_kern {
 	struct	sock *sk;

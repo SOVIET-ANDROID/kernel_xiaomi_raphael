@@ -153,6 +153,7 @@ gen_headers_out_arm64 = [
     "linux/bpqether.h",
     "linux/bsg.h",
     "linux/bt-bmc.h",
+    "linux/btf.h",
     "linux/btrfs.h",
     "linux/btrfs_tree.h",
     "linux/can.h",

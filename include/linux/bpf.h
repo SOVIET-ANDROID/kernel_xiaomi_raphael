@@ -15,6 +15,7 @@
 #include <linux/err.h>
 #include <linux/rbtree_latch.h>
 #include <linux/numa.h>
+#include <linux/wait.h>
 
 struct perf_event;
 struct bpf_prog;
@@ -176,12 +177,15 @@ bpf_ctx_record_field_size(struct bpf_insn_access_aux *aux, u32 size)
 
 struct bpf_verifier_ops {
 	/* return eBPF function prototype for verification */
-	const struct bpf_func_proto *(*get_func_proto)(enum bpf_func_id func_id);
+	const struct bpf_func_proto *
+	(*get_func_proto)(enum bpf_func_id func_id,
+			  const struct bpf_prog *prog);
 
 	/* return true if 'size' wide access at offset 'off' within bpf_context
 	 * with 'type' (read or write) is allowed
 	 */
 	bool (*is_valid_access)(int off, int size, enum bpf_access_type type,
+				const struct bpf_prog *prog,
 				struct bpf_insn_access_aux *info);
 	int (*gen_prologue)(struct bpf_insn *insn, bool direct_write,
 			    const struct bpf_prog *prog);
@@ -191,6 +195,16 @@ struct bpf_verifier_ops {
 				  struct bpf_prog *prog, u32 *target_size);
 	int (*test_run)(struct bpf_prog *prog, const union bpf_attr *kattr,
 			union bpf_attr __user *uattr);
+};
+
+struct bpf_dev_offload {
+	struct bpf_prog		*prog;
+	struct net_device	*netdev;
+	void			*dev_priv;
+	struct list_head	offloads;
+	bool			dev_state;
+	bool			verifier_running;
+	wait_queue_head_t	verifier_done;
 };
 
 struct bpf_prog_aux {
@@ -210,6 +224,7 @@ struct bpf_prog_aux {
 #endif
 	u64 load_time; /* ns since boottime */
 	char name[BPF_OBJ_NAME_LEN];
+	struct bpf_dev_offload *offload;
 	union {
 		struct work_struct work;
 		struct rcu_head	rcu;
@@ -281,6 +296,9 @@ struct bpf_prog_array {
 
 struct bpf_prog_array *bpf_prog_array_alloc(u32 prog_cnt, gfp_t flags);
 void bpf_prog_array_free(struct bpf_prog_array __rcu *progs);
+int bpf_prog_array_length(struct bpf_prog_array __rcu *progs);
+int bpf_prog_array_copy_to_user(struct bpf_prog_array __rcu *progs,
+				__u32 __user *prog_ids, u32 cnt);
 
 void bpf_prog_array_delete_safe(struct bpf_prog_array __rcu *progs,
 				struct bpf_prog *old_prog);
@@ -327,6 +345,8 @@ extern const struct file_operations bpf_prog_fops;
 #include <linux/bpf_types.h>
 #undef BPF_PROG_TYPE
 #undef BPF_MAP_TYPE
+
+extern const struct bpf_verifier_ops bpf_offload_prog_ops;
 
 struct bpf_prog *bpf_prog_get(u32 ufd);
 struct bpf_prog *bpf_prog_get_type(u32 ufd, enum bpf_prog_type type);
@@ -396,6 +416,7 @@ struct bpf_prog *bpf_prog_get_type_path(const char *name, enum bpf_prog_type typ
 
 /* Map specifics */
 struct net_device  *__dev_map_lookup_elem(struct bpf_map *map, u32 key);
+struct net_device  *__dev_map_hash_lookup_elem(struct bpf_map *map, u32 key);
 void __dev_map_insert_ctx(struct bpf_map *map, u32 index);
 void __dev_map_flush(struct bpf_map *map);
 
@@ -473,6 +494,12 @@ static inline struct net_device  *__dev_map_lookup_elem(struct bpf_map *map,
 	return NULL;
 }
 
+static inline struct net_device  *__dev_map_hash_lookup_elem(struct bpf_map *map,
+							     u32 key)
+{
+	return NULL;
+}
+
 static inline void __dev_map_insert_ctx(struct bpf_map *map, u32 index)
 {
 }
@@ -487,6 +514,29 @@ static inline bool unprivileged_ebpf_enabled(void)
 }
 
 #endif /* CONFIG_BPF_SYSCALL */
+
+int bpf_prog_offload_compile(struct bpf_prog *prog);
+void bpf_prog_offload_destroy(struct bpf_prog *prog);
+
+#if defined(CONFIG_NET) && defined(CONFIG_BPF_SYSCALL)
+int bpf_prog_offload_init(struct bpf_prog *prog, union bpf_attr *attr);
+
+static inline bool bpf_prog_is_dev_bound(struct bpf_prog_aux *aux)
+{
+	return aux->offload;
+}
+#else
+static inline int bpf_prog_offload_init(struct bpf_prog *prog,
+					union bpf_attr *attr)
+{
+	return -EOPNOTSUPP;
+}
+
+static inline bool bpf_prog_is_dev_bound(struct bpf_prog_aux *aux)
+{
+	return false;
+}
+#endif /* CONFIG_NET && CONFIG_BPF_SYSCALL */
 
 #if defined(CONFIG_STREAM_PARSER) && defined(CONFIG_BPF_SYSCALL)
 struct sock  *__sock_map_lookup_elem(struct bpf_map *map, u32 key);

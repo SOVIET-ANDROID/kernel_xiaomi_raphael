@@ -93,6 +93,8 @@ enum bpf_cmd {
 	BPF_PROG_GET_FD_BY_ID,
 	BPF_MAP_GET_FD_BY_ID,
 	BPF_OBJ_GET_INFO_BY_FD,
+	BPF_PROG_QUERY,
+	BPF_BTF_LOAD = 18,
 };
 
 enum bpf_map_type {
@@ -112,6 +114,7 @@ enum bpf_map_type {
 	BPF_MAP_TYPE_HASH_OF_MAPS,
 	BPF_MAP_TYPE_DEVMAP,
 	BPF_MAP_TYPE_SOCKMAP,
+	BPF_MAP_TYPE_DEVMAP_HASH = 25,
 };
 
 enum bpf_prog_type {
@@ -130,6 +133,7 @@ enum bpf_prog_type {
 	BPF_PROG_TYPE_LWT_XMIT,
 	BPF_PROG_TYPE_SOCK_OPS,
 	BPF_PROG_TYPE_SK_SKB,
+	BPF_PROG_TYPE_CGROUP_SOCK_ADDR = 18,
 };
 
 enum bpf_attach_type {
@@ -139,6 +143,16 @@ enum bpf_attach_type {
 	BPF_CGROUP_SOCK_OPS,
 	BPF_SK_SKB_STREAM_PARSER,
 	BPF_SK_SKB_STREAM_VERDICT,
+	BPF_CGROUP_INET4_BIND = 8,
+	BPF_CGROUP_INET6_BIND = 9,
+	BPF_CGROUP_INET4_CONNECT,
+	BPF_CGROUP_INET6_CONNECT,
+	BPF_CGROUP_INET4_POST_BIND,
+	BPF_CGROUP_INET6_POST_BIND,
+	BPF_CGROUP_UDP4_SENDMSG,
+	BPF_CGROUP_UDP6_SENDMSG,
+	BPF_CGROUP_UDP4_RECVMSG = 19,
+	BPF_CGROUP_UDP6_RECVMSG = 20,
 	__MAX_BPF_ATTACH_TYPE
 };
 
@@ -212,11 +226,17 @@ enum bpf_attach_type {
 /* Specify numa node during map creation */
 #define BPF_F_NUMA_NODE		(1U << 2)
 
+/* flags for BPF_PROG_QUERY */
+#define BPF_F_QUERY_EFFECTIVE	(1U << 0)
+
 #define BPF_OBJ_NAME_LEN 16U
 
 /* Flags for accessing BPF object */
 #define BPF_F_RDONLY		(1U << 3)
 #define BPF_F_WRONLY		(1U << 4)
+
+/* Flags for accessing BPF object from program side. */
+#define BPF_F_RDONLY_PROG	(1U << 7)
 
 union bpf_attr {
 	struct { /* anonymous struct used by BPF_MAP_CREATE command */
@@ -255,6 +275,12 @@ union bpf_attr {
 		__u32		kern_version;	/* checked when prog_type=kprobe */
 		__u32		prog_flags;
 		char		prog_name[BPF_OBJ_NAME_LEN];
+		__u32		prog_ifindex;	/* ifindex of netdev to prep for */
+		/* For some prog types expected attach type must be known at
+		 * load time to verify attach type specific parts of prog
+		 * (context accesses, allowed helpers, etc).
+		 */
+		__u32		expected_attach_type;
 	};
 
 	struct { /* anonymous struct used by BPF_OBJ_* commands */
@@ -296,6 +322,23 @@ union bpf_attr {
 		__u32		info_len;
 		__aligned_u64	info;
 	} info;
+
+	struct { /* anonymous struct used by BPF_PROG_QUERY command */
+		__u32		target_fd;	/* container object to query */
+		__u32		attach_type;
+		__u32		query_flags;
+		__u32		attach_flags;
+		__aligned_u64	prog_ids;
+		__u32		prog_cnt;
+	} query;
+
+	struct { /* anonymous struct for BPF_BTF_LOAD */
+		__aligned_u64	btf;
+		__aligned_u64	btf_log_buf;
+		__u32		btf_size;
+		__u32		btf_log_size;
+		__u32		btf_log_level;
+	};
 } __attribute__((aligned(8)));
 
 /* BPF helper function descriptions:
@@ -629,6 +672,37 @@ union bpf_attr {
  *	@map: pointer to sockmap to update
  *	@key: key to insert/update sock in map
  *	@flags: same flags as map update elem
+ *
+ * int skb_load_bytes_relative(const struct sk_buff *skb, u32 offset, void *to, u32 len, u32 start_header)
+ * 	Description
+ * 		This helper is similar to **bpf_skb_load_bytes**\ () in that
+ * 		it provides an easy way to load *len* bytes from *offset*
+ * 		from the packet associated to *skb*, into the buffer pointed
+ * 		by *to*. The difference to **bpf_skb_load_bytes**\ () is that
+ * 		a fifth argument *start_header* exists in order to select a
+ * 		base offset to start from. *start_header* can be one of:
+ *
+ * 		**BPF_HDR_START_MAC**
+ * 			Base offset to load data from is *skb*'s mac header.
+ * 		**BPF_HDR_START_NET**
+ * 			Base offset to load data from is *skb*'s network header.
+ *
+ * 		In general, "direct packet access" is the preferred method to
+ * 		access packet data, however, this helper is in particular useful
+ * 		in socket filters where *skb*\ **->data** does not always point
+ * 		to the start of the mac header and where "direct packet access"
+ * 		is not available.
+ *
+ * 	Return
+ * 		0 on success, or a negative error in case of failure.
+ *
+ * int bpf_bind(ctx, addr, addr_len)
+ *     Bind socket to address. Only binding to IP is supported, no port can be
+ *     set in addr.
+ *     @ctx: pointer to context of type bpf_sock_addr
+ *     @addr: pointer to struct sockaddr to bind socket to
+ *     @addr_len: length of sockaddr structure
+ *     Return: 0 on success or negative error code
  */
 #define __BPF_FUNC_MAPPER(FN)		\
 	FN(unspec),			\
@@ -811,6 +885,12 @@ enum bpf_adj_room_mode {
 	BPF_ADJ_ROOM_NET,
 };
 
+/* Mode for BPF_FUNC_skb_load_bytes_relative helper. */
+enum bpf_hdr_start_off {
+	BPF_HDR_START_MAC,
+	BPF_HDR_START_NET,
+};
+
 /* user accessible mirror of in-kernel sk_buff.
  * new fields can only be added to the end of this structure
  */
@@ -879,6 +959,15 @@ struct bpf_sock {
 	__u32 protocol;
 	__u32 mark;
 	__u32 priority;
+	__u32 src_ip4;		/* Allows 1,2,4-byte read.
+				 * Stored in network byte order.
+				 */
+	__u32 src_ip6[4];	/* Allows 1,2,4-byte read.
+				 * Stored in network byte order.
+				 */
+	__u32 src_port;		/* Allows 4-byte read.
+				 * Stored in host byte order
+				 */
 };
 
 #define XDP_PACKET_HEADROOM 256
@@ -935,6 +1024,32 @@ struct bpf_map_info {
 	__u32 map_flags;
 	char  name[BPF_OBJ_NAME_LEN];
 } __attribute__((aligned(8)));
+
+/* User bpf_sock_addr struct to access socket fields and sockaddr struct passed
+ * by user and intended to be used by socket (e.g. to bind to, depends on
+ * attach attach type).
+ */
+struct bpf_sock_addr {
+	__u32 user_family;	/* Allows 4-byte read, but no write. */
+	__u32 user_ip4;		/* Allows 1,2,4-byte read and 4-byte write.
+				 * Stored in network byte order.
+				 */
+	__u32 user_ip6[4];	/* Allows 1,2,4-byte read an 4-byte write.
+				 * Stored in network byte order.
+				 */
+	__u32 user_port;	/* Allows 4-byte read and write.
+				 * Stored in network byte order
+				 */
+	__u32 family;		/* Allows 4-byte read, but no write */
+	__u32 type;		/* Allows 4-byte read, but no write */
+	__u32 protocol;		/* Allows 4-byte read, but no write */
+	__u32 msg_src_ip4;	/* Allows 1,2,4-byte read an 4-byte write.
+				 * Stored in network byte order.
+				 */
+	__u32 msg_src_ip6[4];	/* Allows 1,2,4-byte read an 4-byte write.
+				 * Stored in network byte order.
+				 */
+};
 
 /* User bpf_sock_ops struct to access socket values and specify request ops
  * and their replies.

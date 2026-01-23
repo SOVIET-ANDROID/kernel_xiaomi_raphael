@@ -136,6 +136,32 @@ struct bpf_insn_aux_data {
 
 #define MAX_USED_MAPS 64 /* max number of maps accessed by one eBPF program */
 
+#define BPF_VERIFIER_TMP_LOG_SIZE	1024
+
+struct bpf_verifier_log {
+	u32 level;
+	char kbuf[BPF_VERIFIER_TMP_LOG_SIZE];
+	char __user *ubuf;
+	u32 len_used;
+	u32 len_total;
+};
+
+static inline bool bpf_verifier_log_full(const struct bpf_verifier_log *log)
+{
+	return log->len_used >= log->len_total - 1;
+}
+
+static inline bool bpf_verifier_log_needed(const struct bpf_verifier_log *log)
+{
+	return log->level && log->ubuf && !bpf_verifier_log_full(log);
+}
+
+__printf(2, 3) void bpf_verifier_log_write(struct bpf_verifier_log *log,
+					   const char *fmt, ...);
+
+void bpf_verifier_vlog(struct bpf_verifier_log *log, const char *fmt,
+		       va_list args);
+
 struct bpf_verifier_env;
 struct bpf_ext_analyzer_ops {
 	int (*insn_hook)(struct bpf_verifier_env *env,
@@ -155,6 +181,7 @@ struct bpf_verifier_env {
 	struct bpf_verifier_state *cur_state; /* current verifier state */
 	struct bpf_verifier_state_list **explored_states; /* search pruning optimization */
 	const struct bpf_ext_analyzer_ops *analyzer_ops; /* external analyzer ops */
+	const struct bpf_ext_analyzer_ops *dev_ops; /* device analyzer ops */
 	void *analyzer_priv; /* pointer to external analyzer's private data */
 	struct bpf_map *used_maps[MAX_USED_MAPS]; /* array of map's used by eBPF program */
 	u32 used_map_cnt;		/* number of used maps */
@@ -168,6 +195,15 @@ static inline struct bpf_reg_state *cur_regs(struct bpf_verifier_env *env)
 {
 	return env->cur_state->regs;
 }
+
+#if defined(CONFIG_NET) && defined(CONFIG_BPF_SYSCALL)
+int bpf_prog_offload_verifier_prep(struct bpf_verifier_env *env);
+#else
+int bpf_prog_offload_verifier_prep(struct bpf_verifier_env *env)
+{
+	return -EOPNOTSUPP;
+}
+#endif
 
 int bpf_analyzer(struct bpf_prog *prog, const struct bpf_ext_analyzer_ops *ops,
 		 void *priv);
