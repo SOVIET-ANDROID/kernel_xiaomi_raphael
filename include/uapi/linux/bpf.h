@@ -93,7 +93,6 @@ enum bpf_cmd {
 	BPF_PROG_GET_FD_BY_ID,
 	BPF_MAP_GET_FD_BY_ID,
 	BPF_OBJ_GET_INFO_BY_FD,
-	BPF_BTF_LOAD = 18,
 };
 
 enum bpf_map_type {
@@ -297,14 +296,6 @@ union bpf_attr {
 		__u32		info_len;
 		__aligned_u64	info;
 	} info;
-
-	struct { /* anonymous struct for BPF_BTF_LOAD */
-		__aligned_u64	btf;
-		__aligned_u64	btf_log_buf;
-		__u32		btf_size;
-		__u32		btf_log_size;
-		__u32		btf_log_level;
-	};
 } __attribute__((aligned(8)));
 
 /* BPF helper function descriptions:
