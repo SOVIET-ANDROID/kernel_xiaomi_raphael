@@ -468,8 +468,7 @@ static const struct bpf_func_proto bpf_probe_read_str_proto = {
 	.arg3_type	= ARG_ANYTHING,
 };
 
-static const struct bpf_func_proto *
-tracing_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
+static const struct bpf_func_proto *tracing_func_proto(enum bpf_func_id func_id)
 {
 	switch (func_id) {
 	case BPF_FUNC_map_lookup_elem:
@@ -515,8 +514,7 @@ tracing_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 	}
 }
 
-static const struct bpf_func_proto *
-kprobe_prog_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
+static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func_id)
 {
 	switch (func_id) {
 	case BPF_FUNC_perf_event_output:
@@ -524,13 +522,12 @@ kprobe_prog_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 	case BPF_FUNC_get_stackid:
 		return &bpf_get_stackid_proto;
 	default:
-		return tracing_func_proto(func_id, prog);
+		return tracing_func_proto(func_id);
 	}
 }
 
 /* bpf+kprobe programs can access fields of 'struct pt_regs' */
 static bool kprobe_prog_is_valid_access(int off, int size, enum bpf_access_type type,
-					const struct bpf_prog *prog,
 					struct bpf_insn_access_aux *info)
 {
 	if (off < 0 || off >= sizeof(struct pt_regs))
@@ -601,8 +598,7 @@ static const struct bpf_func_proto bpf_get_stackid_proto_tp = {
 	.arg3_type	= ARG_ANYTHING,
 };
 
-static const struct bpf_func_proto *
-tp_prog_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
+static const struct bpf_func_proto *tp_prog_func_proto(enum bpf_func_id func_id)
 {
 	switch (func_id) {
 	case BPF_FUNC_perf_event_output:
@@ -610,12 +606,11 @@ tp_prog_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 	case BPF_FUNC_get_stackid:
 		return &bpf_get_stackid_proto_tp;
 	default:
-		return tracing_func_proto(func_id, prog);
+		return tracing_func_proto(func_id);
 	}
 }
 
 static bool tp_prog_is_valid_access(int off, int size, enum bpf_access_type type,
-				    const struct bpf_prog *prog,
 				    struct bpf_insn_access_aux *info)
 {
 	if (off < sizeof(void *) || off >= PERF_MAX_TRACE_SIZE)
@@ -635,7 +630,6 @@ const struct bpf_verifier_ops tracepoint_prog_ops = {
 };
 
 static bool pe_prog_is_valid_access(int off, int size, enum bpf_access_type type,
-				    const struct bpf_prog *prog,
 				    struct bpf_insn_access_aux *info)
 {
 	const int size_sp = FIELD_SIZEOF(struct bpf_perf_event_data,
