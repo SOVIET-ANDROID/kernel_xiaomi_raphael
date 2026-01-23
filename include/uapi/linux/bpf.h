@@ -132,7 +132,6 @@ enum bpf_prog_type {
 	BPF_PROG_TYPE_LWT_XMIT,
 	BPF_PROG_TYPE_SOCK_OPS,
 	BPF_PROG_TYPE_SK_SKB,
-	BPF_PROG_TYPE_CGROUP_SOCK_ADDR = 18,
 };
 
 enum bpf_attach_type {
@@ -142,8 +141,6 @@ enum bpf_attach_type {
 	BPF_CGROUP_SOCK_OPS,
 	BPF_SK_SKB_STREAM_PARSER,
 	BPF_SK_SKB_STREAM_VERDICT,
-	BPF_CGROUP_INET4_BIND = 8,
-	BPF_CGROUP_INET6_BIND = 9,
 	__MAX_BPF_ATTACH_TYPE
 };
 
@@ -996,26 +993,6 @@ struct bpf_map_info {
 	__u32 map_flags;
 	char  name[BPF_OBJ_NAME_LEN];
 } __attribute__((aligned(8)));
-
-/* User bpf_sock_addr struct to access socket fields and sockaddr struct passed
- * by user and intended to be used by socket (e.g. to bind to, depends on
- * attach attach type).
- */
-struct bpf_sock_addr {
-	__u32 user_family;	/* Allows 4-byte read, but no write. */
-	__u32 user_ip4;		/* Allows 1,2,4-byte read and 4-byte write.
-				 * Stored in network byte order.
-				 */
-	__u32 user_ip6[4];	/* Allows 1,2,4-byte read an 4-byte write.
-				 * Stored in network byte order.
-				 */
-	__u32 user_port;	/* Allows 4-byte read and write.
-				 * Stored in network byte order
-				 */
-	__u32 family;		/* Allows 4-byte read, but no write */
-	__u32 type;		/* Allows 4-byte read, but no write */
-	__u32 protocol;		/* Allows 4-byte read, but no write */
-};
 
 /* User bpf_sock_ops struct to access socket values and specify request ops
  * and their replies.
