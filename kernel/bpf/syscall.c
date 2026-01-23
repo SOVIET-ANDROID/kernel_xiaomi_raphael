@@ -1162,7 +1162,7 @@ struct bpf_prog *bpf_prog_get_type(u32 ufd, enum bpf_prog_type type)
 EXPORT_SYMBOL_GPL(bpf_prog_get_type);
 
 /* last field in 'union bpf_attr' used by this command */
-#define	BPF_PROG_LOAD_LAST_FIELD prog_ifindex
+#define	BPF_PROG_LOAD_LAST_FIELD prog_target_ifindex
 
 static int bpf_prog_load(union bpf_attr *attr)
 {
@@ -1225,7 +1225,7 @@ static int bpf_prog_load(union bpf_attr *attr)
 	atomic_set(&prog->aux->refcnt, 1);
 	prog->gpl_compatible = is_gpl ? 1 : 0;
 
-	if (attr->prog_ifindex) {
+	if (attr->prog_target_ifindex) {
 		err = bpf_prog_offload_init(prog, attr);
 		if (err)
 			goto free_prog;
