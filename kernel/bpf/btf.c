@@ -162,16 +162,13 @@
 #define BITS_ROUNDUP_BYTES(bits) \
 	(BITS_ROUNDDOWN_BYTES(bits) + !!BITS_PER_BYTE_MASKED(bits))
 
-#define BTF_INFO_MASK 0x0f00ffff
-#define BTF_INT_MASK 0x0fffffff
-#define BTF_TYPE_ID_VALID(type_id) ((type_id) <= BTF_MAX_TYPE)
-#define BTF_STR_OFFSET_VALID(name_off) ((name_off) <= BTF_MAX_NAME_OFFSET)
-
 /* 16MB for 64k structs and each has 16 members and
  * a few MB spaces for the string section.
  * The hard limit is S32_MAX.
  */
 #define BTF_MAX_SIZE (16 * 1024 * 1024)
+/* 64k. We can raise it later. The hard limit is S32_MAX. */
+#define BTF_MAX_NR_TYPES 65535
 
 #define for_each_member(i, struct_type, member)			\
 	for (i = 0, member = btf_type_member(struct_type);	\
@@ -380,6 +377,8 @@ static const char *btf_int_encoding_str(u8 encoding)
 		return "CHAR";
 	else if (encoding == BTF_INT_BOOL)
 		return "BOOL";
+	else if (encoding == BTF_INT_VARARGS)
+		return "VARARGS";
 	else
 		return "UNKN";
 }
@@ -416,16 +415,16 @@ static const struct btf_kind_operations *btf_type_ops(const struct btf_type *t)
 
 static bool btf_name_offset_valid(const struct btf *btf, u32 offset)
 {
-	return BTF_STR_OFFSET_VALID(offset) &&
-		offset < btf->hdr.str_len;
+	return !BTF_STR_TBL_ELF_ID(offset) &&
+		BTF_STR_OFFSET(offset) < btf->hdr.str_len;
 }
 
 static const char *btf_name_by_offset(const struct btf *btf, u32 offset)
 {
-	if (!offset)
+	if (!BTF_STR_OFFSET(offset))
 		return "(anon)";
-	else if (offset < btf->hdr.str_len)
-		return &btf->strings[offset];
+	else if (BTF_STR_OFFSET(offset) < btf->hdr.str_len)
+		return &btf->strings[BTF_STR_OFFSET(offset)];
 	else
 		return "(invalid-name-offset)";
 }
@@ -593,13 +592,13 @@ static int btf_add_type(struct btf_verifier_env *env, struct btf_type *t)
 		struct btf_type **new_types;
 		u32 expand_by, new_size;
 
-		if (btf->types_size == BTF_MAX_TYPE) {
+		if (btf->types_size == BTF_MAX_NR_TYPES) {
 			btf_verifier_log(env, "Exceeded max num of types");
 			return -E2BIG;
 		}
 
 		expand_by = max_t(u32, btf->types_size >> 2, 16);
-		new_size = min_t(u32, BTF_MAX_TYPE,
+		new_size = min_t(u32, BTF_MAX_NR_TYPES,
 				 btf->types_size + expand_by);
 
 		new_types = kvzalloc(new_size * sizeof(*new_types),
@@ -889,12 +888,6 @@ static s32 btf_int_check_meta(struct btf_verifier_env *env,
 	}
 
 	int_data = btf_type_int(t);
-	if (int_data & ~BTF_INT_MASK) {
-		btf_verifier_log_basic(env, t, "Invalid int_data:%x",
-				       int_data);
-		return -EINVAL;
-	}
-
 	nr_bits = BTF_INT_BITS(int_data) + BTF_INT_OFFSET(int_data);
 
 	if (nr_bits > BITS_PER_U64) {
@@ -908,17 +901,12 @@ static s32 btf_int_check_meta(struct btf_verifier_env *env,
 		return -EINVAL;
 	}
 
-	/*
-	 * Only one of the encoding bits is allowed and it
-	 * should be sufficient for the pretty print purpose (i.e. decoding).
-	 * Multiple bits can be allowed later if it is found
-	 * to be insufficient.
-	 */
 	encoding = BTF_INT_ENCODING(int_data);
 	if (encoding &&
 	    encoding != BTF_INT_SIGNED &&
 	    encoding != BTF_INT_CHAR &&
-	    encoding != BTF_INT_BOOL) {
+	    encoding != BTF_INT_BOOL &&
+	    encoding != BTF_INT_VARARGS) {
 		btf_verifier_log_type(env, t, "Unsupported encoding");
 		return -ENOTSUPP;
 	}
@@ -1092,7 +1080,7 @@ static int btf_ref_type_check_meta(struct btf_verifier_env *env,
 		return -EINVAL;
 	}
 
-	if (!BTF_TYPE_ID_VALID(t->type)) {
+	if (BTF_TYPE_PARENT(t->type)) {
 		btf_verifier_log_type(env, t, "Invalid type_id");
 		return -EINVAL;
 	}
@@ -1299,12 +1287,12 @@ static s32 btf_array_check_meta(struct btf_verifier_env *env,
 	/* Array elem type and index type cannot be in type void,
 	 * so !array->type and !array->index_type are not allowed.
 	 */
-	if (!array->type || !BTF_TYPE_ID_VALID(array->type)) {
+	if (!array->type || BTF_TYPE_PARENT(array->type)) {
 		btf_verifier_log_type(env, t, "Invalid elem");
 		return -EINVAL;
 	}
 
-	if (!array->index_type || !BTF_TYPE_ID_VALID(array->index_type)) {
+	if (!array->index_type || BTF_TYPE_PARENT(array->index_type)) {
 		btf_verifier_log_type(env, t, "Invalid index");
 		return -EINVAL;
 	}
@@ -1473,7 +1461,7 @@ static s32 btf_struct_check_meta(struct btf_verifier_env *env,
 		}
 
 		/* A member cannot be in type void */
-		if (!member->type || !BTF_TYPE_ID_VALID(member->type)) {
+		if (!member->type || BTF_TYPE_PARENT(member->type)) {
 			btf_verifier_log_member(env, t, member,
 						"Invalid type_id");
 			return -EINVAL;
@@ -1725,12 +1713,6 @@ static s32 btf_check_meta(struct btf_verifier_env *env,
 		return -EINVAL;
 	}
 	meta_left -= sizeof(*t);
-
-	if (t->info & ~BTF_INFO_MASK) {
-		btf_verifier_log(env, "[%u] Invalid btf_info:%x",
-				 env->log_type_id, t->info);
-		return -EINVAL;
-	}
 
 	if (BTF_INFO_KIND(t->info) > BTF_KIND_MAX ||
 	    BTF_INFO_KIND(t->info) == BTF_KIND_UNKN) {
