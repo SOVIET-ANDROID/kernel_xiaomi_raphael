@@ -4,7 +4,6 @@
 
 #include <linux/types.h>
 #include <linux/in6.h>
-#include <linux/siphash.h>
 #include <linux/string.h>
 #include <uapi/linux/if_ether.h>
 
@@ -262,7 +261,7 @@ struct flow_keys_basic {
 struct flow_keys {
 	struct flow_dissector_key_control control;
 #define FLOW_KEYS_HASH_START_FIELD basic
-	struct flow_dissector_key_basic basic __aligned(SIPHASH_ALIGNMENT);
+	struct flow_dissector_key_basic basic;
 	struct flow_dissector_key_tags tags;
 	struct flow_dissector_key_vlan vlan;
 	struct flow_dissector_key_vlan cvlan;
