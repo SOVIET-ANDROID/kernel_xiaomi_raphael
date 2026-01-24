@@ -1752,7 +1752,7 @@ void rmnet_shs_get_update_skb_proto(struct sk_buff *skb,
  * Whenever a new hash is observed, cores are chosen round robin so that
  * back to back new flows do not getting assigned to the same core
  */
-void rmnet_shs_assign(struct sk_buff *skb, struct rmnet_port *port)
+int rmnet_shs_assign(struct sk_buff *skb, struct rmnet_port *port)
 {
 	struct rmnet_shs_skbn_s *node_p;
 	struct hlist_node *tmp;
@@ -1773,7 +1773,7 @@ void rmnet_shs_assign(struct sk_buff *skb, struct rmnet_port *port)
 	if (!rmnet_shs_is_skb_stamping_reqd(skb)) {
 
 		rmnet_shs_deliver_skb(skb);
-		return;
+		return 0;
 	}
 	if ((unlikely(!map)) || !rmnet_shs_cfg.rmnet_shs_init_complete) {
 		rmnet_shs_deliver_skb(skb);
@@ -1781,7 +1781,7 @@ void rmnet_shs_assign(struct sk_buff *skb, struct rmnet_port *port)
 				    RMNET_SHS_ASSIGN_CRIT_ERROR_NO_SHS_REQD,
 				    0xDEF, 0xDEF, 0xDEF, 0xDEF, NULL, NULL);
 		rmnet_shs_crit_err[RMNET_SHS_MAIN_SHS_RPS_INIT_ERR]++;
-		return;
+		return 0;
 	}
 
 	SHS_TRACE_HIGH(RMNET_SHS_ASSIGN, RMNET_SHS_ASSIGN_START,
@@ -1871,7 +1871,7 @@ void rmnet_shs_assign(struct sk_buff *skb, struct rmnet_port *port)
 		SHS_TRACE_ERR(RMNET_SHS_ASSIGN,
 				    RMNET_SHS_ASSIGN_CRIT_ERROR_NO_SHS_REQD,
 				    0xDEF, 0xDEF, 0xDEF, 0xDEF, NULL, NULL);
-		return;
+		return 0;
 	}
 
 	/* We got the first packet after a previous successdul flush. Arm the
@@ -1945,6 +1945,7 @@ void rmnet_shs_assign(struct sk_buff *skb, struct rmnet_port *port)
 		rmnet_shs_flush_reason[RMNET_SHS_FLUSH_INV_DL_IND]++;
 		rmnet_shs_flush_table(0, RMNET_RX_CTXT);
 	}
+	return 0;
 }
 
 /* Cancels the flushing timer if it has been armed

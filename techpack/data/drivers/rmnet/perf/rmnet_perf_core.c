@@ -1017,7 +1017,7 @@ out:
  * Return:
  *		- void
  **/
-void rmnet_perf_core_deaggregate(struct sk_buff *skb,
+int rmnet_perf_core_deaggregate(struct sk_buff *skb,
 				 struct rmnet_port *port)
 {
 	struct rmnet_perf *perf;
@@ -1061,4 +1061,6 @@ void rmnet_perf_core_deaggregate(struct sk_buff *skb,
 	rmnet_perf_core_pre_ip_count += co;
 	rmnet_perf_core_chain_count[chain_count]++;
 	rmnet_perf_core_release_lock();
+
+	return 0;
 }

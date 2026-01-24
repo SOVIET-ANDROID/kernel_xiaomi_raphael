@@ -150,7 +150,7 @@ void rmnet_perf_core_send_desc(struct rmnet_frag_descriptor *frag_desc);
 void rmnet_perf_core_flush_curr_pkt(struct rmnet_perf_pkt_info *pkt_info,
 				    u16 packet_len, bool flush_shs,
 				    bool skip_hash);
-void rmnet_perf_core_deaggregate(struct sk_buff *skb,
+int rmnet_perf_core_deaggregate(struct sk_buff *skb,
 				 struct rmnet_port *port);
 void rmnet_perf_core_desc_entry(struct rmnet_frag_descriptor *frag_desc,
 				struct rmnet_port *port);

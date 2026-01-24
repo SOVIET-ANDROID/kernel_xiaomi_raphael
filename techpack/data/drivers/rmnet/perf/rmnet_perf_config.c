@@ -373,7 +373,8 @@ rmnet_perf_dereg_callbacks(struct net_device *dev,
 
 static bool rmnet_perf_config_hook_registered(void)
 {
-	int (*deag_entry)(struct sk_buff *skb);
+	int (*deag_entry)(struct sk_buff *skb,
+			  struct rmnet_port *port);
 	void (*frag_entry)(struct rmnet_frag_descriptor *frag_desc,
 			   struct rmnet_port *port);
 

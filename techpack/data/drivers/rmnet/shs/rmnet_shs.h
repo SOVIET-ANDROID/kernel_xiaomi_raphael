@@ -316,7 +316,7 @@ void rmnet_shs_dl_trl_handler_v2(struct rmnet_map_dl_ind_trl *dltrl,
 			      struct rmnet_map_control_command_header *qcmd);
 void rmnet_shs_dl_hdr_handler(struct rmnet_map_dl_ind_hdr *dlhdr);
 void rmnet_shs_dl_trl_handler(struct rmnet_map_dl_ind_trl *dltrl);
-void rmnet_shs_assign(struct sk_buff *skb, struct rmnet_port *port);
+int rmnet_shs_assign(struct sk_buff *skb, struct rmnet_port *port);
 void rmnet_shs_flush_table(u8 is_force_flush, u8 ctxt);
 void rmnet_shs_cpu_node_remove(struct rmnet_shs_skbn_s *node);
 void rmnet_shs_init(struct net_device *dev, struct net_device *vnd);
