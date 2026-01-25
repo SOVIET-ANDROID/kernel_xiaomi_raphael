@@ -394,4 +394,4 @@
 424	i386	pidfd_send_signal	sys_pidfd_send_signal
 434	i386	pidfd_open		sys_pidfd_open
 436	i386	close_range		sys_close_range
-441	i386	epoll_pwait2		sys_epoll_pwait2		__ia32_sys_epoll_pwait2
+441	i386	epoll_pwait2		sys_epoll_pwait2		compat_sys_epoll_pwait2
