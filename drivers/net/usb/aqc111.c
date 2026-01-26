@@ -16,11 +16,16 @@
 #include <linux/if_vlan.h>
 #include <linux/usb/cdc.h>
 #include <linux/usb/usbnet.h>
-#include <linux/linkmode.h>
 
 #include "aqc111.h"
 
 #define DRIVER_NAME "aqc111"
+
+/* Copied from drivers/net/phy/phylink.c */
+static inline void linkmode_copy(unsigned long *dst, const unsigned long *src)
+{
+        bitmap_copy(dst, src, __ETHTOOL_LINK_MODE_MASK_NBITS);
+}
 
 static int aqc111_read_cmd_nopm(struct usbnet *dev, u8 cmd, u16 value,
 				u16 index, u16 size, void *data)
