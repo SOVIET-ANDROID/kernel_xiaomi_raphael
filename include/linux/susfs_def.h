@@ -47,7 +47,7 @@
 
 /*
  * mount->mnt.susfs_mnt_id_backup => storing original mount's mnt_id
- * inode->i_mapping->flags => A 'unsigned long' type storing flag 'AS_FLAGS_', bit 1 to 31 is not usable since 6.12
+ * inode->i_state => A 'unsigned long' type storing flag 'AS_FLAGS_', bit 1 to 31 is not usable since 6.12
  * nd->state => storing flag 'ND_STATE_'
  * nd->flags => storing flag 'ND_FLAGS_'
  * task_struct->thread_info.flags => storing flag 'TIF_'
