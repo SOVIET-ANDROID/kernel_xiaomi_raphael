@@ -14,6 +14,8 @@
 #include <linux/fdtable.h>
 #include <linux/statfs.h>
 #include <linux/random.h>
+#include <linux/kthread.h>
+#include <linux/delay.h>
 #include <linux/susfs.h>
 #include "mount.h"
 
@@ -1039,6 +1041,58 @@ out_copy_to_user:
 		info.err = -EFAULT;
 	}
 	SUSFS_LOGI("CMD_SUSFS_SHOW_VERSION -> ret: %d\n", info.err);
+}
+
+/* kthread for checking if /sdcard/Android/data is available */
+#define SDCARD_ANDROID_DATA_PATH "/sdcard/Android/data"
+extern void setup_selinux(const char *domain);
+extern bool susfs_is_current_ksu_domain(void);
+bool susfs_is_sdcard_android_data_decrypted __read_mostly = false;
+static struct task_struct *susfs_sdcard_monitor_thread;
+static int susfs_sdcard_monitor_fn(void *data)
+{
+	struct path path;
+	int error;
+
+	SUSFS_LOGI("Start monitoring path '%s'\n", SDCARD_ANDROID_DATA_PATH);
+
+	setup_selinux("u:r:su:s0");
+
+	if (!susfs_is_current_ksu_domain()) {
+		SUSFS_LOGE("Domain is not su, exiting the thread\n");
+		susfs_sdcard_monitor_thread = NULL;
+		return 0;
+	}
+
+	while (!kthread_should_stop()) {
+		error = kern_path(SDCARD_ANDROID_DATA_PATH, LOOKUP_FOLLOW, &path);
+
+		if (!error) {
+			SUSFS_LOGI("'%s' is now accessible\n", SDCARD_ANDROID_DATA_PATH);
+			path_put(&path);
+
+			SUSFS_LOGI("Sleeping for 5 more seconds just in case some other modules are still mounting stuff\n");
+			msleep(5000);
+
+			SUSFS_LOGI("Setting susfs_is_sdcard_android_data_decrypted to true\n");
+
+			WRITE_ONCE(susfs_is_sdcard_android_data_decrypted, true);
+			WRITE_ONCE(susfs_sdcard_monitor_thread, NULL);
+
+			return 0;
+		}
+
+		msleep(5000);
+	}
+
+	return 0;
+}
+
+void susfs_start_sdcard_monitor_fn(void) {
+	susfs_sdcard_monitor_thread = kthread_run(susfs_sdcard_monitor_fn, NULL, "susfs_sdcard_monitor");
+    if (IS_ERR(susfs_sdcard_monitor_thread)) {
+        SUSFS_LOGE("Failed to create thread susfs_sdcard_monitor\n");
+    }
 }
 
 /* susfs_init */
