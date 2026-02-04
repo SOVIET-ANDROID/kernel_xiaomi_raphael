@@ -16,6 +16,7 @@
 #include <linux/random.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
+#include <linux/fsnotify_backend.h>
 #include <linux/susfs.h>
 #include "mount.h"
 
@@ -1043,56 +1044,150 @@ out_copy_to_user:
 	SUSFS_LOGI("CMD_SUSFS_SHOW_VERSION -> ret: %d\n", info.err);
 }
 
-/* kthread for checking if /sdcard/Android/data is available */
-#define SDCARD_ANDROID_DATA_PATH "/sdcard/Android/data"
-extern void setup_selinux(const char *domain);
+/* kthread for checking if /sdcard/Android is accessible via fsnoitfy */
+/* code is straightly borrowed from KernelSU's pkg_observer.c */
+#define SDCARD_ANDROID_DATA_PATH "/data/media/0/Android"
+extern void setup_selinux(const char *domain, struct cred *cred);
 extern bool susfs_is_current_ksu_domain(void);
 bool susfs_is_sdcard_android_data_decrypted __read_mostly = false;
-static struct task_struct *susfs_sdcard_monitor_thread;
+
+struct watch_dir {
+	const char *path;
+	u32 mask;
+	struct path kpath;
+	struct inode *inode;
+	struct fsnotify_mark *mark;
+};
+
+static struct fsnotify_group *g;
+
+static struct watch_dir g_watch = { .path = "/data/media/0", // we choose the underlying f2fs /data/media/0 instead of the FUSE /sdcard
+									.mask = (FS_EVENT_ON_CHILD | FS_ISDIR | FS_OPEN_PERM) };
+
+static int add_mark_on_inode(struct inode *inode, u32 mask,
+								struct fsnotify_mark **out);
+
+static int watch_one_dir(struct watch_dir *wd)
+{
+	int ret = kern_path(wd->path, LOOKUP_FOLLOW, &wd->kpath);
+	if (ret) {
+		SUSFS_LOGI("path not ready: %s (%d)\n", wd->path, ret);
+		return ret;
+	}
+	wd->inode = d_inode(wd->kpath.dentry);
+	ihold(wd->inode);
+
+	ret = add_mark_on_inode(wd->inode, wd->mask, &wd->mark);
+	if (ret) {
+		SUSFS_LOGE("Add mark failed for %s (%d)\n", wd->path, ret);
+		iput(wd->inode);
+		wd->inode = NULL;
+		path_put(&wd->kpath);
+		return ret;
+	}
+	SUSFS_LOGI("watching %s\n", wd->path);
+	return 0;
+}
+
+static int susfs_handle_sdcard_inode_event(struct fsnotify_group *group,
+											struct inode *to_tell,
+											struct fsnotify_mark *inode_mark,
+											struct fsnotify_mark *vfsmount_mark,
+											u32 mask, const void *data, int data_type,
+											const unsigned char *file_name, u32 cookie,
+											struct fsnotify_iter_info *iter_info)
+{
+	static bool target_path_is_found = false;
+
+	if (target_path_is_found || !file_name)
+		return 0;
+	if (strlen(file_name) == 7 && !memcmp(file_name, "Android", 7)) {
+		target_path_is_found = true;
+		SUSFS_LOGI("'%s' detected, mask: 0x%x\n", SDCARD_ANDROID_DATA_PATH, mask);
+		SUSFS_LOGI("sleeping for 5 more seconds just in case some other modules are still mounting stuff\n");
+		msleep(5000);
+		SUSFS_LOGI("set susfs_is_sdcard_android_data_decrypted to true\n");
+		WRITE_ONCE(susfs_is_sdcard_android_data_decrypted, true);
+		SUSFS_LOGI("cleaning up\n");
+		if (g) {
+			fsnotify_destroy_group(g);
+		}
+		if (g_watch.inode) {
+			iput(g_watch.inode);
+			g_watch.inode = NULL;
+		}
+		path_put(&g_watch.kpath);
+	}
+	return 0;
+}
+
+static const struct fsnotify_ops fsnotify_ops = {
+	.handle_event = susfs_handle_sdcard_inode_event,
+};
+
+static int add_mark_on_inode(struct inode *inode, u32 mask,
+								struct fsnotify_mark **out)
+{
+	struct fsnotify_mark *m;
+
+	m = kzalloc(sizeof(*m), GFP_KERNEL);
+	if (!m)
+		return -ENOMEM;
+
+	fsnotify_init_mark(m, g);
+	m->mask = mask;
+
+	if (fsnotify_add_mark(m, inode, NULL, 0)) {
+		fsnotify_put_mark(m);
+		return -EINVAL;
+	}
+	*out = m;
+	return 0;
+}
+
 static int susfs_sdcard_monitor_fn(void *data)
 {
-	struct path path;
-	int error;
+	struct cred *cred = prepare_creds();
+	int ret = 0;
 
-	SUSFS_LOGI("Start monitoring path '%s'\n", SDCARD_ANDROID_DATA_PATH);
+	if (!cred) {
+		SUSFS_LOGE("failed to prepare creds!\n");
+		return -ENOMEM;
+	}
 
-	setup_selinux("u:r:su:s0");
+	setup_selinux("u:r:su:s0", cred);
+	commit_creds(cred);
 
 	if (!susfs_is_current_ksu_domain()) {
-		SUSFS_LOGE("Domain is not su, exiting the thread\n");
-		susfs_sdcard_monitor_thread = NULL;
-		return 0;
+		SUSFS_LOGE("domain is not su, exiting the thread\n");
+		return -EINVAL;
 	}
 
-	while (!kthread_should_stop()) {
-		error = kern_path(SDCARD_ANDROID_DATA_PATH, LOOKUP_FOLLOW, &path);
+	SUSFS_LOGI("start monitoring path '%s' using fsnotify\n",
+				SDCARD_ANDROID_DATA_PATH);
 
-		if (!error) {
-			SUSFS_LOGI("'%s' is now accessible\n", SDCARD_ANDROID_DATA_PATH);
-			path_put(&path);
-
-			SUSFS_LOGI("Sleeping for 5 more seconds just in case some other modules are still mounting stuff\n");
-			msleep(5000);
-
-			SUSFS_LOGI("Setting susfs_is_sdcard_android_data_decrypted to true\n");
-
-			WRITE_ONCE(susfs_is_sdcard_android_data_decrypted, true);
-			WRITE_ONCE(susfs_sdcard_monitor_thread, NULL);
-
-			return 0;
-		}
-
-		msleep(5000);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
+	g = fsnotify_alloc_group(&fsnotify_ops, 0);
+#else
+	g = fsnotify_alloc_group(&fsnotify_ops);
+#endif
+	if (IS_ERR(g)) {
+		return PTR_ERR(g);
 	}
+
+	ret = watch_one_dir(&g_watch);
+
+	SUSFS_LOGI("ret: %d\n", ret);
 
 	return 0;
 }
 
 void susfs_start_sdcard_monitor_fn(void) {
-	susfs_sdcard_monitor_thread = kthread_run(susfs_sdcard_monitor_fn, NULL, "susfs_sdcard_monitor");
-    if (IS_ERR(susfs_sdcard_monitor_thread)) {
-        SUSFS_LOGE("Failed to create thread susfs_sdcard_monitor\n");
-    }
+	if (IS_ERR(kthread_run(susfs_sdcard_monitor_fn, NULL, "susfs_sdcard_monitor"))) {
+		SUSFS_LOGE("failed to create thread susfs_sdcard_monitor\n");
+		SUSFS_LOGI("set susfs_is_sdcard_android_data_decrypted to true\n");
+		susfs_is_sdcard_android_data_decrypted = true;
+	}
 }
 
 /* susfs_init */
