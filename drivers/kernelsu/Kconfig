@@ -1,0 +1,45 @@
+menu "KernelSU"
+
+config KSU
+	tristate "KernelSU function support"
+	default y
+	help
+	  Enable kernel-level root privileges on Android System.
+	  Requires CONFIG_KPROBES for kernel hooking support.
+	  To compile as a module, choose M here: the
+	  module will be called kernelsu.
+
+config KSU_DEBUG
+	bool "KernelSU debug mode"
+	depends on KSU
+	default n
+	help
+	  Enable KernelSU debug mode.
+
+config KSU_ALLOWLIST_WORKAROUND
+	bool "KernelSU allowlist workaround"
+	depends on KSU
+	default n
+	help
+	  Enable workaround for broken allowlist save
+
+# For easier extern ifdef handling
+config KSU_MANUAL_HOOK
+	bool "KernelSU manual hook mode."
+	depends on KSU && KSU != m
+	default y if !KPROBES
+	default n
+	help
+	  Enable manual hook support.
+
+config KSU_KPROBES_HOOK
+	bool "KernelSU tracepoint+kretprobe hook"
+	depends on KSU && !KSU_MANUAL_HOOK
+	depends on KRETPROBES && KPROBES && HAVE_SYSCALL_TRACEPOINTS
+	default y if KPROBES && KRETPROBES && HAVE_SYSCALL_TRACEPOINTS
+	default y if !KSU_MANUAL_HOOK
+	help
+	  Enable KPROBES, KRETPROBES and TRACEPOINT hook for KernelSU core.
+	  This should not be used on kernel below 5.10.
+
+endmenu
