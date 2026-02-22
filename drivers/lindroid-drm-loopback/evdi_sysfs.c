@@ -1,137 +1,244 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * evdi_sysfs.c
+ * Copyright (C) 2012 Red Hat
+ * Copyright (c) 2015 - 2020 DisplayLink (UK) Ltd.
+ * Copyright (c) 2025 Lindroid Authors
  *
- * Copyright (c) 2020 DisplayLink (UK) Ltd.
- *
- * This program is free software; you can redistribute  it and/or modify it
- * under  the terms of  the GNU General  Public License as published by the
- * Free Software Foundation;  either version 2 of the  License, or (at your
- * option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * This file is subject to the terms and conditions of the GNU General Public
+ * License v2. See the file COPYING in the main directory of this archive for
+ * more details.
  */
 
-
+#include "evdi_drv.h"
 #include <linux/device.h>
-#include <linux/slab.h>
+#include <linux/sysfs.h>
+#include <linux/stat.h>
+#include <linux/platform_device.h>
+#include <linux/idr.h>
 
-#include "evdi_sysfs.h"
-#include "evdi_params.h"
-#include "evdi_debug.h"
-#include "evdi_platform_drv.h"
+extern bool evdi_perf_on;
+extern struct static_key_false evdi_perf_key;
 
-static ssize_t version_show(__always_unused struct device *dev,
-			    __always_unused struct device_attribute *attr,
-			    char *buf)
+static struct device *evdi_sysfs_dev;
+static DEFINE_IDA(evdi_pdev_ida);
+
+static ssize_t add_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%u.%u.%u\n", DRIVER_MAJOR,
-			DRIVER_MINOR, DRIVER_PATCH);
+	return sprintf(buf, "%d\n", atomic_read(&evdi_device_count));
 }
 
-static ssize_t count_show(__always_unused struct device *dev,
-			  __always_unused struct device_attribute *attr,
-			  char *buf)
+static ssize_t add_store(struct device *dev, struct device_attribute *attr,
+			const char *buf, size_t count)
 {
-	return snprintf(buf, PAGE_SIZE, "%u\n", evdi_platform_device_count(dev));
-}
+	struct platform_device *pdev;
+	struct device *parent = evdi_sysfs_dev;
+	int val, ret, id;
 
-static ssize_t add_store(struct device *dev,
-			 __always_unused struct device_attribute *attr,
-			 const char *buf, size_t count)
-{
-	unsigned int val;
-	int ret;
-
-	if (kstrtouint(buf, 10, &val)) {
-		EVDI_ERROR("Invalid device count \"%s\"\n", buf);
-		return -EINVAL;
-	}
-
-	ret = evdi_platform_add_devices(dev, val);
-	if (ret)
+	ret = kstrtoint(buf, 10, &val);
+	if (ret) {
+		evdi_err("Invalid input for device creation: %s", buf);
 		return ret;
-
-	return count;
-}
-
-static ssize_t remove_all_store(struct device *dev,
-				__always_unused struct device_attribute *attr,
-				__always_unused const char *buf,
-				size_t count)
-{
-	evdi_platform_remove_all_devices(dev);
-	return count;
-}
-
-static ssize_t loglevel_show(__always_unused struct device *dev,
-			     __always_unused struct device_attribute *attr,
-			     char *buf)
-{
-	return snprintf(buf, PAGE_SIZE, "%u\n", evdi_loglevel);
-}
-
-static ssize_t loglevel_store(__always_unused struct device *dev,
-			      __always_unused struct device_attribute *attr,
-			      const char *buf,
-			      size_t count)
-{
-	unsigned int val;
-
-	if (kstrtouint(buf, 10, &val)) {
-		EVDI_ERROR("Unable to parse %u\n", val);
-		return -EINVAL;
 	}
-	if (val > EVDI_LOGLEVEL_VERBOSE) {
-		EVDI_ERROR("Invalid loglevel %u\n", val);
+
+	if (val <= 0) {
+		evdi_err("Device count must be positive: %d", val);
 		return -EINVAL;
 	}
 
-	EVDI_INFO("Setting loglevel to %u\n", val);
-	evdi_loglevel = val;
+#if KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE
+	id = ida_alloc_range(&evdi_pdev_ida, 0, INT_MAX, GFP_KERNEL);
+#else
+	id = ida_simple_get(&evdi_pdev_ida, 0, INT_MAX, GFP_KERNEL);
+#endif
+	if (id < 0) {
+		evdi_err("Failed to allocate device id: %d", id);
+		return id;
+	}
+
+	pdev = platform_device_alloc(DRIVER_NAME, id);
+	if (!pdev) {
+		evdi_err("Failed to allocate platform device");
+#if KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE
+		ida_free(&evdi_pdev_ida, id);
+#else
+		ida_simple_remove(&evdi_pdev_ida, id);
+#endif
+		return -ENOMEM;
+	}
+
+	pdev->dev.parent = parent;
+	ret = platform_device_add(pdev);
+	if (ret) {
+		evdi_err("Failed to add platform device: %d", ret);
+		platform_device_put(pdev);
+#if KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE
+		ida_free(&evdi_pdev_ida, id);
+#else
+		ida_simple_remove(&evdi_pdev_ida, id);
+#endif
+		return ret;
+	}
+
+	evdi_info("Created new device via sysfs (total: %d)",
+		 atomic_read(&evdi_device_count));
+
 	return count;
 }
 
-struct device_attribute dev_attr_add = {
+/* HACK: Make 'add' world-writable so users can add evdi devices. */
+static struct device_attribute dev_attr_add_0666 = {
 	.attr = {
 		.name = "add",
 		.mode = 0666,
 	},
+	.show = add_show,
 	.store = add_store,
 };
 
-static struct device_attribute evdi_device_attributes[] = {
-	__ATTR_RO(count),
-	__ATTR_RO(version),
-	__ATTR_RW(loglevel),
-	__ATTR_WO(remove_all)
+static ssize_t enable_perf_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", evdi_perf_on ? 1 : 0);
+}
+
+static ssize_t enable_perf_store(struct device *dev, struct device_attribute *attr,
+				 const char *buf, size_t count)
+{
+	int val, ret;
+
+	ret = kstrtoint(buf, 10, &val);
+	if (ret)
+		return ret;
+
+	if (val) {
+		if (!evdi_perf_on) {
+			evdi_perf_on = true;
+			static_branch_enable(&evdi_perf_key);
+		}
+	} else {
+		if (evdi_perf_on) {
+			evdi_perf_on = false;
+			static_branch_disable(&evdi_perf_key);
+		}
+	}
+	return count;
+}
+
+static DEVICE_ATTR_RW(enable_perf);
+
+static struct attribute *evdi_sysfs_attrs[] = {
+	NULL,
 };
 
-void evdi_sysfs_init(struct device *root)
-{
-	unsigned int i;
+static const struct attribute_group evdi_sysfs_attr_group = {
+	.attrs = evdi_sysfs_attrs,
+};
 
-	device_create_file(root, &dev_attr_add);
-	if (!PTR_ERR_OR_ZERO(root))
-		for (i = 0; i < ARRAY_SIZE(evdi_device_attributes); i++)
-			device_create_file(root, &evdi_device_attributes[i]);
+static ssize_t stats_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf,
+	"EVDI-Lindroid Performance Statistics\n"
+	"=====================================\n"
+	"IOCTL calls:\n"
+	"  CONNECT: %lld\n"
+	"  POLL: %lld\n"
+	"  GET_BUFF_CALLBACK: %lld\n"
+	"  DESTROY_BUFF_CALLBACK: %lld\n"
+	"  SWAP_CALLBACK: %lld\n"
+	"  CREATE_BUFF_CALLBACK: %lld\n"
+	"  EVDI_GBM_GET_BUFF: %lld\n"
+	"\n"
+	"Event system:\n"
+	"  Wakeups: %lld\n"
+	"  Poll cycles: %lld\n"
+	"  Queue operations: %lld\n"
+	"  Dequeue operations: %lld\n"
+	"  Event allocations: %lld\n"
+	"  Swap updates: %lld\n"
+	"  Swap delivered: %lld\n"
+	"  Inflight per-CPU hits: %lld\n"
+	"  Inflight per-CPU misses: %lld\n"
+	"=====================================\n",
+	(long long)atomic64_read(&evdi_perf.ioctl_calls[0]),
+	(long long)atomic64_read(&evdi_perf.ioctl_calls[1]),
+	(long long)atomic64_read(&evdi_perf.ioctl_calls[3]),
+	(long long)atomic64_read(&evdi_perf.ioctl_calls[4]),
+	(long long)atomic64_read(&evdi_perf.ioctl_calls[5]),
+	(long long)atomic64_read(&evdi_perf.ioctl_calls[6]),
+	(long long)atomic64_read(&evdi_perf.ioctl_calls[7]),
+	(long long)atomic64_read(&evdi_perf.wakeup_count),
+	(long long)atomic64_read(&evdi_perf.poll_cycles),
+	(long long)atomic64_read(&evdi_perf.event_queue_ops),
+	(long long)atomic64_read(&evdi_perf.event_dequeue_ops),
+	(long long)atomic64_read(&evdi_perf.allocs),
+	(long long)atomic64_read(&evdi_perf.swap_updates),
+	(long long)atomic64_read(&evdi_perf.swap_delivered),
+	(long long)atomic64_read(&evdi_perf.inflight_percpu_hits),
+	(long long)atomic64_read(&evdi_perf.inflight_percpu_misses));
 }
 
-void evdi_sysfs_exit(struct device *root)
-{
-	unsigned int i;
+static DEVICE_ATTR_RO(stats);
 
-	if (PTR_ERR_OR_ZERO(root)) {
-		EVDI_ERROR("root device is null");
-		return;
+static struct attribute *evdi_debug_attrs[] = {
+	&dev_attr_stats.attr,
+	&dev_attr_enable_perf.attr,
+	NULL,
+};
+
+static const struct attribute_group evdi_debug_attr_group = {
+	.name = "debug",
+	.attrs = evdi_debug_attrs,
+};
+
+static const struct attribute_group *evdi_attr_groups[] = {
+	&evdi_sysfs_attr_group,
+	&evdi_debug_attr_group,
+	NULL,
+};
+
+int evdi_sysfs_init(void)
+{
+	int ret;
+
+
+	evdi_sysfs_dev = root_device_register(DRIVER_NAME);
+	if (IS_ERR(evdi_sysfs_dev)) {
+		ret = PTR_ERR(evdi_sysfs_dev);
+		evdi_err("Failed to register sysfs device: %d", ret);
+		return ret;
 	}
-	for (i = 0; i < ARRAY_SIZE(evdi_device_attributes); i++)
-		device_remove_file(root, &evdi_device_attributes[i]);
+
+	ret = sysfs_create_groups(&evdi_sysfs_dev->kobj, evdi_attr_groups);
+	if (ret) {
+		evdi_err("Failed to create sysfs attributes: %d", ret);
+		goto err_device;
+	}
+
+	ret = device_create_file(evdi_sysfs_dev, &dev_attr_add_0666);
+	if (ret) {
+		evdi_err("Failed to create writable 'add' attribute: %d", ret);
+		goto err_groups;
+	}
+
+	evdi_info("Sysfs interface created at /sys/devices/%s/", DRIVER_NAME);
+	return 0;
+
+err_groups:
+	sysfs_remove_groups(&evdi_sysfs_dev->kobj, evdi_attr_groups);
+err_device:
+	root_device_unregister(evdi_sysfs_dev);
+	evdi_sysfs_dev = NULL;
+	return ret;
 }
 
+void evdi_sysfs_cleanup(void)
+{
+	if (evdi_sysfs_dev) {
+		device_remove_file(evdi_sysfs_dev, &dev_attr_add_0666);
+		sysfs_remove_groups(&evdi_sysfs_dev->kobj, evdi_attr_groups);
+		root_device_unregister(evdi_sysfs_dev);
+		evdi_sysfs_dev = NULL;
+	}
+	ida_destroy(&evdi_pdev_ida);
+
+	evdi_info("Sysfs interface cleaned up");
+}

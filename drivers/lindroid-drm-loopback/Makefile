@@ -12,7 +12,7 @@ ifneq ($(DKMS_BUILD),)
 KERN_DIR := /lib/modules/$(KERNELRELEASE)/build
 
 ccflags-y := -isystem include/uapi/drm $(CFLAGS) $(EL8FLAG) $(EL9FLAG) $(RPIFLAG)
-evdi-lindroid-y := evdi_platform_drv.o evdi_platform_dev.o evdi_sysfs.o evdi_modeset.o evdi_connector.o evdi_encoder.o evdi_drm_drv.o evdi_fb.o evdi_gem.o evdi_painter.o evdi_params.o evdi_debug.o
+evdi-lindroid-y := evdi_connector.o evdi_event.o evdi_fb.o evdi_gem.o evdi_ioctl.o evdi_lindroid_drv.o evdi_modeset.o evdi_sysfs.o
 obj-m := evdi-lindroid.o
 
 KBUILD_VERBOSE ?= 1
@@ -27,8 +27,8 @@ clean:
 else
 
 ccflags-y := -isystem include/uapi/drm $(CFLAGS) $(EL8FLAG) $(EL9FLAG) $(RPIFLAG)
-evdi-y := evdi_platform_drv.o evdi_platform_dev.o evdi_sysfs.o evdi_modeset.o evdi_connector.o evdi_encoder.o evdi_drm_drv.o evdi_fb.o evdi_gem.o evdi_painter.o evdi_params.o evdi_debug.o
+evdi-y := evdi_connector.o evdi_event.o evdi_fb.o evdi_gem.o evdi_ioctl.o evdi_lindroid_drv.o evdi_modeset.o evdi_sysfs.o
 obj-$(CONFIG_DRM_LINDROID_EVDI) := evdi.o
-obj-y += tests/
+#obj-y += tests/
 
 endif # ifneq ($(DKMS_BUILD),)

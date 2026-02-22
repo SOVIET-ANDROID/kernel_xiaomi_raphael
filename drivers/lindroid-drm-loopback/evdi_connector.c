@@ -1,202 +1,241 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
+ * Virtual connector implementation
+ *
  * Copyright (C) 2012 Red Hat
  * Copyright (c) 2015 - 2020 DisplayLink (UK) Ltd.
- *
- * Based on parts on udlfb.c:
- * Copyright (C) 2009 its respective authors
+ * Copyright (c) 2025 Lindroid Authors
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License v2. See the file COPYING in the main directory of this archive for
  * more details.
  */
 
-#include <linux/version.h>
-#include <drm/drm_crtc.h>
-#include <drm/drm_crtc_helper.h>
-#include <drm/drm_atomic_helper.h>
-#include "evdi_drm_drv.h"
+#include "evdi_drv.h"
+#include <drm/drm_modes.h>
 
-#if KERNEL_VERSION(5, 1, 0) <= LINUX_VERSION_CODE || defined(EL8)
-#include <drm/drm_probe_helper.h>
-#endif
-
-/*
- * dummy connector to just get EDID,
- * all EVDI appear to have a DVI-D
- */
-
-static int evdi_get_modes(struct drm_connector *connector)
+int evdi_connector_slot(const struct evdi_device *evdi,
+						const struct drm_connector *conn)
 {
-	struct evdi_device *evdi = connector->dev->dev_private;
-	int ret = 0;
-	struct drm_display_mode *new_mode;
-	EVDI_VERBOSE("GET MODES");
-
-	new_mode = drm_mode_create(connector->dev);
-	strncpy(new_mode->name, "Lindroid", 8);
-	new_mode->clock = evdi->painter->height * evdi->painter->width * evdi->painter->refresh_rate / 1000;
-	new_mode->hdisplay = evdi->painter->width;
-	new_mode->hsync_start = evdi->painter->width;
-	new_mode->hsync_end = evdi->painter->width;
-	new_mode->htotal = evdi->painter->width;
-	new_mode->vdisplay = evdi->painter->height;
-	new_mode->vsync_start = evdi->painter->height;
-	new_mode->vsync_end = evdi->painter->height;
-	new_mode->vtotal = evdi->painter->height;
-	new_mode->flags = 0;
-	new_mode->type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
-
-	drm_mode_probed_add(connector, new_mode);
-	if (ret) {
-		EVDI_ERROR("Failed to set edid property! error: %d", ret);
-		goto err;
+	int i;
+	for (i = 0; i < LINDROID_MAX_CONNECTORS; i++) {
+		if (evdi->connector[i] == conn)
+			return i;
 	}
-
-	EVDI_INFO("(card%d) Edid property set", evdi->dev_index);
-err:
-	return ret;
-}
-
-static bool is_lowest_frequency_mode_of_given_resolution(
-	struct drm_connector *connector, struct drm_display_mode *mode)
-{
-	struct drm_display_mode *modeptr;
-
-	list_for_each_entry(modeptr, &(connector->modes), head) {
-		if (modeptr->hdisplay == mode->hdisplay &&
-			modeptr->vdisplay == mode->vdisplay &&
-			drm_mode_vrefresh(modeptr) < drm_mode_vrefresh(mode)) {
-			return false;
-		}
-	}
-	return true;
-}
-
-static enum drm_mode_status evdi_mode_valid(struct drm_connector *connector,
-					    struct drm_display_mode *mode)
-{
-	struct evdi_device *evdi = connector->dev->dev_private;
-	uint32_t area_limit = mode->hdisplay * mode->vdisplay;
-	uint32_t mode_limit = area_limit * drm_mode_vrefresh(mode);
-
-	if (evdi->pixel_per_second_limit == 0)
-		return MODE_OK;
-
-	if (area_limit > evdi->pixel_area_limit) {
-		EVDI_WARN(
-			"(card%d) Mode %dx%d@%d rejected. Reason: mode area too big\n",
-			evdi->dev_index,
-			mode->hdisplay,
-			mode->vdisplay,
-			drm_mode_vrefresh(mode));
-		return MODE_BAD;
-	}
-
-	if (mode_limit <= evdi->pixel_per_second_limit)
-		return MODE_OK;
-
-	if (is_lowest_frequency_mode_of_given_resolution(connector, mode)) {
-		EVDI_WARN(
-			"(card%d) Mode exceeds maximal frame rate for the device. Mode %dx%d@%d may have a limited output frame rate",
-			evdi->dev_index,
-			mode->hdisplay,
-			mode->vdisplay,
-			drm_mode_vrefresh(mode));
-		return MODE_OK;
-	}
-
-	EVDI_WARN(
-		"(card%d) Mode %dx%d@%d rejected. Reason: mode pixel clock too high\n",
-		evdi->dev_index,
-		mode->hdisplay,
-		mode->vdisplay,
-		drm_mode_vrefresh(mode));
-
-	return MODE_BAD;
+	return -ENOENT;
 }
 
 static enum drm_connector_status
-evdi_detect(struct drm_connector *connector, __always_unused bool force)
+evdi_connector_detect(struct drm_connector *connector, bool force)
 {
+	int id;
+
 	struct evdi_device *evdi = connector->dev->dev_private;
 
-	EVDI_CHECKPT();
-	if (evdi_painter_is_connected(evdi->painter)) {
-		EVDI_INFO("(card%d) Connector state: connected\n",
-			   evdi->dev_index);
-		return connector_status_connected;
-	}
-	EVDI_VERBOSE("(card%d) Connector state: disconnected\n",
-		   evdi->dev_index);
-	return connector_status_disconnected;
+	if (unlikely(!evdi))
+		return connector_status_disconnected;
+
+	id = evdi_connector_slot(evdi, connector);
+	if (unlikely(id < 0))
+		return connector_status_disconnected;
+
+	return evdi_likely_connected(evdi, id) ?
+	   connector_status_connected :
+	   connector_status_disconnected;
 }
 
-static void evdi_connector_destroy(struct drm_connector *connector)
+static int evdi_connector_get_modes(struct drm_connector *connector)
 {
-	drm_connector_unregister(connector);
-	drm_connector_cleanup(connector);
-	kfree(connector);
+	struct evdi_device *evdi = connector->dev->dev_private;
+	struct drm_display_mode *mode;
+	int id;
+
+	id = evdi_connector_slot(evdi, connector);
+	if (unlikely(id < 0) || !evdi_likely_connected(evdi, id))
+		return 0;
+
+	mode = drm_mode_create(connector->dev);
+	if (!mode)
+		return 0;
+
+	mode->hdisplay = evdi->displays[id].width;
+	mode->vdisplay = evdi->displays[id].height;
+
+	mode->hsync_start = mode->hdisplay + 1;
+	mode->hsync_end = mode->hsync_start + 1;
+	mode->htotal = mode->hsync_end + 1;
+
+	mode->vsync_start = mode->vdisplay + 1;
+	mode->vsync_end = mode->vsync_start + 1;
+	mode->vtotal = mode->vsync_end + 1;
+
+	mode->clock = mode->htotal * mode->vtotal * evdi->displays[id].refresh_rate / 1000;
+
+	mode->type = DRM_MODE_TYPE_PREFERRED | DRM_MODE_TYPE_DRIVER;
+
+	drm_mode_set_name(mode);
+	drm_mode_probed_add(connector, mode);
+
+	evdi_debug("Created mode %ux%u@%uHz for device %d",
+		  evdi->width, evdi->height, evdi->refresh_rate, evdi->dev_index);
+
+	return 1;
 }
 
-static struct drm_encoder *evdi_best_encoder(struct drm_connector *connector)
+static enum drm_mode_status
+evdi_connector_mode_valid(struct drm_connector *connector,
+			 struct drm_display_mode *mode)
 {
-#if KERNEL_VERSION(5, 5, 0) <= LINUX_VERSION_CODE || defined(EL8)
-	struct drm_encoder *encoder;
+	int vrefresh = drm_mode_vrefresh(mode);
+	if (mode->hdisplay < 640 || mode->hdisplay > 8192)
+		return MODE_BAD_HVALUE;
 
-	drm_connector_for_each_possible_encoder(connector, encoder) {
-		return encoder;
-	}
+	if (mode->vdisplay < 480 || mode->vdisplay > 8192)
+		return MODE_BAD_VVALUE;
 
-	return NULL;
-#elif KERNEL_VERSION(4, 15, 0) <= LINUX_VERSION_CODE || defined(CONFIG_ARCH_QCOM)
-	return drm_encoder_find(connector->dev,
-				NULL,
-				connector->encoder_ids[0]);
-#else
-	return drm_encoder_find(connector->dev,
-				connector->encoder_ids[0]);
-#endif
+	if (vrefresh < 23 || vrefresh > 240)
+		return MODE_BAD;
+
+	return MODE_OK;
 }
 
-static struct drm_connector_helper_funcs evdi_connector_helper_funcs = {
-	.get_modes = evdi_get_modes,
-	.mode_valid = evdi_mode_valid,
-	.best_encoder = evdi_best_encoder,
+static const struct drm_connector_helper_funcs evdi_connector_helper_funcs = {
+	.get_modes = evdi_connector_get_modes,
+	.mode_valid = evdi_connector_mode_valid,
 };
 
+#if EVDI_HAVE_ATOMIC_HELPERS
 static const struct drm_connector_funcs evdi_connector_funcs = {
-	.detect = evdi_detect,
+	.detect = evdi_connector_detect,
 	.fill_modes = drm_helper_probe_single_connector_modes,
-	.destroy = evdi_connector_destroy,
+	.destroy = drm_connector_cleanup,
 	.reset = drm_atomic_helper_connector_reset,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
-	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state
+	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 };
+#else
+static int evdi_connector_dpms(struct drm_connector *connector, int mode)
+{
+	return 0;
+}
 
-int evdi_connector_init(struct drm_device *dev, struct drm_encoder *encoder)
+static int evdi_connector_set_property(struct drm_connector *connector,
+				       struct drm_property *property,
+				       uint64_t val)
+{
+	return -EINVAL;
+}
+
+static void evdi_atomic_helper_connector_reset(struct drm_connector *connector)
+{
+	struct drm_connector_state *state;
+
+	if (connector->state) {
+		kfree(connector->state);
+		connector->state = NULL;
+	}
+
+	state = kzalloc(sizeof(*state), GFP_KERNEL);
+	if (!state)
+		return;
+	state->connector = connector;
+	connector->state = state;
+}
+
+static struct drm_connector_state *
+evdi_atomic_helper_connector_duplicate_state(struct drm_connector *connector)
+{
+	struct drm_connector_state *state, *copy;
+
+	state = connector->state;
+	if (!state)
+		return NULL;
+
+	copy = kmemdup(state, sizeof(*state), GFP_KERNEL);
+	if (!copy)
+		return NULL;
+	copy->connector = connector;
+	return copy;
+}
+
+static void
+evdi_atomic_helper_connector_destroy_state(struct drm_connector *connector,
+					   struct drm_connector_state *state)
+{
+	kfree(state);
+}
+
+static const struct drm_connector_funcs evdi_connector_funcs = {
+	.detect = evdi_connector_detect,
+	.dpms = evdi_connector_dpms,
+	.fill_modes = drm_helper_probe_single_connector_modes,
+	.destroy = drm_connector_cleanup,
+	.set_property = evdi_connector_set_property,
+	.reset = evdi_atomic_helper_connector_reset,
+	.atomic_duplicate_state = evdi_atomic_helper_connector_duplicate_state,
+	.atomic_destroy_state = evdi_atomic_helper_connector_destroy_state,
+};
+#endif
+
+int evdi_connector_init(struct drm_device *dev, struct evdi_device *evdi)
 {
 	struct drm_connector *connector;
-	struct evdi_device *evdi = dev->dev_private;
-	EVDI_VERBOSE("Init connector");
-	connector = kzalloc(sizeof(struct drm_connector), GFP_KERNEL);
-	if (!connector)
-		return -ENOMEM;
+	int ret = 0, i, j;
 
-	/* TODO: Initialize connector with actual connector type */
-	drm_connector_init(dev, connector, &evdi_connector_funcs,
-			   DRM_MODE_CONNECTOR_DisplayPort);
-	drm_connector_helper_add(connector, &evdi_connector_helper_funcs);
-	connector->polled = DRM_CONNECTOR_POLL_HPD;
+	if (unlikely(!dev || !evdi))
+		return -EINVAL;
 
-	drm_connector_register(connector);
-
-	evdi->conn = connector;
-
-#if KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE  || defined(EL8)
-	drm_connector_attach_encoder(connector, encoder);
+	for (i = 0; i < LINDROID_MAX_CONNECTORS; i++) {
+		connector = kzalloc(sizeof(*connector), GFP_KERNEL);
+		if (!connector) {
+			ret = -ENOMEM;
+			goto err_free_prev;
+		}
+#if EVDI_HAVE_CONNECTOR_INIT_WITH_DDC
+		ret = drm_connector_init_with_ddc(dev, connector,
+						  &evdi_connector_funcs,
+						  DRM_MODE_CONNECTOR_VIRTUAL, NULL);
 #else
-	drm_mode_connector_attach_encoder(connector, encoder);
+		ret = drm_connector_init(dev, connector, &evdi_connector_funcs,
+					 DRM_MODE_CONNECTOR_VIRTUAL);
 #endif
+		if (ret) {
+			evdi_err("Failed to initialize connector[%d]: %d", i, ret);
+			kfree(connector);
+			goto err_free_prev;
+		}
+
+		connector->interlace_allowed = false;
+		connector->doublescan_allowed = false;
+		connector->polled = DRM_CONNECTOR_POLL_CONNECT |
+				    DRM_CONNECTOR_POLL_DISCONNECT;
+		drm_connector_helper_add(connector, &evdi_connector_helper_funcs);
+		evdi->connector[i] = connector;
+	}
+
+	evdi_debug("Connector initialized for device %d", evdi->dev_index);
 	return 0;
+
+err_free_prev:
+	for (j = 0; j < i; j++) {
+		if (evdi->connector[j]) {
+			drm_connector_cleanup(evdi->connector[j]);
+			kfree(evdi->connector[j]);
+			evdi->connector[j] = NULL;
+		}
+	}
+	return ret;
+}
+
+void evdi_connector_cleanup(struct evdi_device *evdi)
+{
+	int i;
+	for (i = 0; i < LINDROID_MAX_CONNECTORS; i++) {
+		if (evdi->connector[i]) {
+			drm_connector_cleanup(evdi->connector[i]);
+			kfree(evdi->connector[i]);
+			evdi->connector[i] = NULL;
+		}
+	}
+	evdi_debug("Connector cleaned up for device %d", evdi->dev_index);
 }
