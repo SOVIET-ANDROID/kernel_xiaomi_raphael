@@ -95,9 +95,10 @@ endif
 endif
 
 ifneq ($(HAVE_KSU_HOOK),0)
+ifneq ($(CONFIG_KSU_MANUAL_HOOK)$(CONFIG_KSU_KPROBES_HOOK),)
 $(error -- KernelSU-Next: No hooks were defined, please integrate manual hooks in your kernel!)
 endif
-
+endif
 # some backports
 ifneq ($(shell grep -Eq "^static int can_umount" $(srctree)/fs/namespace.c; echo $$?),0)
 $(info -- KSU_NEXT: adding function 'static int can_umount(const struct path *path, int flags);' to $(srctree)/fs/namespace.c)
