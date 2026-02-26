@@ -5328,8 +5328,14 @@ recheck:
 	}
 
 	if (attr->sched_flags &
-		~(SCHED_FLAG_RESET_ON_FORK | SCHED_FLAG_RECLAIM))
-		return -EINVAL;
+    ~(SCHED_FLAG_RESET_ON_FORK  |
+      SCHED_FLAG_RECLAIM        |
+      SCHED_FLAG_KEEP_POLICY    |
+      SCHED_FLAG_KEEP_PARAMS    |
+      SCHED_FLAG_UTIL_CLAMP     |
+      SCHED_FLAG_UTIL_CLAMP_MIN |
+      SCHED_FLAG_UTIL_CLAMP_MAX))
+    return -EINVAL;
 
 	/*
 	 * Valid priorities for SCHED_FIFO and SCHED_RR are
@@ -5339,8 +5345,9 @@ recheck:
 	if ((p->mm && attr->sched_priority > MAX_USER_RT_PRIO-1) ||
 	    (!p->mm && attr->sched_priority > MAX_RT_PRIO-1))
 		return -EINVAL;
-	if ((dl_policy(policy) && !__checkparam_dl(attr)) ||
-	    (rt_policy(policy) != (attr->sched_priority != 0)))
+	if (!(attr->sched_flags & SCHED_FLAG_KEEP_PARAMS) &&
+	    ((dl_policy(policy) && !__checkparam_dl(attr)) ||
+	    (rt_policy(policy) != (attr->sched_priority != 0))))
 		return -EINVAL;
 
 	/*
