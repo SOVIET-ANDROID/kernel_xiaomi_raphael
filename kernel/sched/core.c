@@ -8406,17 +8406,18 @@ capacity_from_percent(char *buf)
 
 	buf = strim(buf);
 	if (strcmp(buf, "max")) {
-		req.ret = cgroup_parse_float(buf, UCLAMP_PERCENT_SHIFT,
-					     &req.percent);
+		u64 val;
+
+		req.ret = kstrtoull(buf, 10, &val);
 		if (req.ret)
 			return req;
-		if ((u64)req.percent > UCLAMP_PERCENT_SCALE) {
+		if (val > SCHED_CAPACITY_SCALE) {
 			req.ret = -ERANGE;
 			return req;
 		}
 
-		req.util = req.percent << SCHED_CAPACITY_SHIFT;
-		req.util = DIV_ROUND_CLOSEST_ULL(req.util, UCLAMP_PERCENT_SCALE);
+		req.util = val;
+		req.percent = DIV_ROUND_CLOSEST_ULL(val * UCLAMP_PERCENT_SCALE, SCHED_CAPACITY_SCALE);
 	}
 
 	return req;
@@ -8476,8 +8477,6 @@ static inline void cpu_uclamp_print(struct seq_file *sf,
 {
 	struct task_group *tg;
 	u64 util_clamp;
-	u64 percent;
-	u32 rem;
 
 	rcu_read_lock();
 	tg = css_tg(seq_css(sf));
@@ -8489,9 +8488,7 @@ static inline void cpu_uclamp_print(struct seq_file *sf,
 		return;
 	}
 
-	percent = tg->uclamp_pct[clamp_id];
-	percent = div_u64_rem(percent, POW10(UCLAMP_PERCENT_SHIFT), &rem);
-	seq_printf(sf, "%llu.%0*u\n", percent, UCLAMP_PERCENT_SHIFT, rem);
+	seq_printf(sf, "%llu\n", util_clamp);
 }
 
 static int cpu_uclamp_min_show(struct seq_file *sf, void *v)
