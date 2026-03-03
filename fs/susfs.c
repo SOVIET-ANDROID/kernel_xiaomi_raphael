@@ -8,6 +8,7 @@
 #include <linux/list.h>
 #include <linux/init_task.h>
 #include <linux/spinlock.h>
+#include <linux/seqlock.h>
 #include <linux/stat.h>
 #include <linux/uaccess.h>
 #include <linux/version.h>
@@ -25,8 +26,8 @@ extern bool susfs_is_current_ksu_domain(void);
 
 #ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
 bool susfs_is_log_enabled __read_mostly = true;
-#define SUSFS_LOGI(fmt, ...) if (susfs_is_log_enabled) pr_info("susfs:[%u][%d][%s] " fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
-#define SUSFS_LOGE(fmt, ...) if (susfs_is_log_enabled) pr_err("susfs:[%u][%d][%s]" fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
+#define SUSFS_LOGI(fmt, ...) if (READ_ONCE(susfs_is_log_enabled)) pr_info("susfs:[%u][%d][%s] " fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
+#define SUSFS_LOGE(fmt, ...) if (READ_ONCE(susfs_is_log_enabled)) pr_err("susfs:[%u][%d][%s]" fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
 #else
 #define SUSFS_LOGI(fmt, ...) 
 #define SUSFS_LOGE(fmt, ...) 
@@ -372,7 +373,6 @@ bool susfs_is_inode_sus_path(struct inode *inode) {
 
 /* sus_mount */
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-static DEFINE_SPINLOCK(susfs_spin_lock_sus_mount);
 bool susfs_hide_sus_mnts_for_non_su_procs = true; // hide sus mounts for all processes by default
 
 void susfs_set_hide_sus_mnts_for_non_su_procs(void __user **user_info) {
@@ -382,9 +382,8 @@ void susfs_set_hide_sus_mnts_for_non_su_procs(void __user **user_info) {
 		info.err = -EFAULT;
 		goto out_copy_to_user;
 	}
-	spin_lock(&susfs_spin_lock_sus_mount);
-	susfs_hide_sus_mnts_for_non_su_procs = info.enabled;
-	spin_unlock(&susfs_spin_lock_sus_mount);
+
+	WRITE_ONCE(susfs_hide_sus_mnts_for_non_su_procs, info.enabled);
 	SUSFS_LOGI("susfs_hide_sus_mnts_for_non_su_procs: %d\n", info.enabled);
 	info.err = 0;
 out_copy_to_user:
@@ -642,11 +641,9 @@ void susfs_try_umount(uid_t uid) {
 
 /* spoof_uname */
 #ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
-static DEFINE_SPINLOCK(susfs_spin_lock_set_uname);
-static struct st_susfs_uname my_uname;
-static void susfs_my_uname_init(void) {
-	memset(&my_uname, 0, sizeof(my_uname));
-}
+static struct st_susfs_uname my_uname = {0};
+static bool is_susfs_uname_set = false;
+static DEFINE_SEQLOCK(susfs_uname_seqlock);
 
 void susfs_set_uname(void __user **user_info) {
 	struct st_susfs_uname info = {0};
@@ -656,19 +653,25 @@ void susfs_set_uname(void __user **user_info) {
 		goto out_copy_to_user;
 	}
 
-	spin_lock(&susfs_spin_lock_set_uname);
+	if (*info.release == '\0' || *info.version == '\0') {
+		info.err = -EFAULT;
+		goto out_copy_to_user;
+	}
+
+	write_seqlock(&susfs_uname_seqlock);
 	if (!strcmp(info.release, "default")) {
-		strncpy(my_uname.release, utsname()->release, __NEW_UTS_LEN);
+		strscpy(my_uname.release, utsname()->release, __NEW_UTS_LEN);
 	} else {
 		strncpy(my_uname.release, info.release, __NEW_UTS_LEN);
 	}
 	if (!strcmp(info.version, "default")) {
-		strncpy(my_uname.version, utsname()->version, __NEW_UTS_LEN);
+		strscpy(my_uname.version, utsname()->version, __NEW_UTS_LEN);
 	} else {
 		strncpy(my_uname.version, info.version, __NEW_UTS_LEN);
 	}
-	spin_unlock(&susfs_spin_lock_set_uname);
-	SUSFS_LOGI("setting spoofed release: '%s', version: '%s'\n",
+	is_susfs_uname_set = true;
+	write_sequnlock(&susfs_uname_seqlock);
+	SUSFS_LOGI("set spoofed release: '%s', version: '%s'\n",
 				my_uname.release, my_uname.version);
 	info.err = 0;
 out_copy_to_user:
@@ -679,16 +682,20 @@ out_copy_to_user:
 }
 
 void susfs_spoof_uname(struct new_utsname* tmp) {
-	if (unlikely(my_uname.release[0] == '\0' || spin_is_locked(&susfs_spin_lock_set_uname)))
-		return;
-	strncpy(tmp->release, my_uname.release, __NEW_UTS_LEN);
-	strncpy(tmp->version, my_uname.version, __NEW_UTS_LEN);
+	unsigned seq;
+
+	do {
+		seq = read_seqbegin(&susfs_uname_seqlock);
+		if (is_susfs_uname_set) {
+			strncpy(tmp->release, my_uname.release, __NEW_UTS_LEN);
+			strncpy(tmp->version, my_uname.version, __NEW_UTS_LEN);
+		}
+	} while (read_seqretry(&susfs_uname_seqlock, seq));
 }
 #endif // #ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
 
 /* enable_log */
 #ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
-static DEFINE_SPINLOCK(susfs_spin_lock_enable_log);
 
 void susfs_enable_log(void __user **user_info) {
 	struct st_susfs_log info = {0};
@@ -698,10 +705,9 @@ void susfs_enable_log(void __user **user_info) {
 		goto out_copy_to_user;
 	}
 
-	spin_lock(&susfs_spin_lock_enable_log);
-	susfs_is_log_enabled = info.enabled;
-	spin_unlock(&susfs_spin_lock_enable_log);
-	if (susfs_is_log_enabled) {
+	WRITE_ONCE(susfs_is_log_enabled, info.enabled);
+
+	if (info.enabled) {
 		pr_info("susfs: enable logging to kernel");
 	} else {
 		pr_info("susfs: disable logging to kernel");
@@ -717,9 +723,9 @@ out_copy_to_user:
 
 /* spoof_cmdline_or_bootconfig */
 #ifdef CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
-static DEFINE_SPINLOCK(susfs_spin_lock_set_cmdline_or_bootconfig);
 static char *fake_cmdline_or_bootconfig = NULL;
 static bool susfs_is_fake_cmdline_or_bootconfig_set = false;
+static DEFINE_SEQLOCK(susfs_fake_cmdline_or_bootconfig_seqlock);
 
 void susfs_set_cmdline_or_bootconfig(void __user **user_info) {
 	struct st_susfs_spoof_cmdline_or_bootconfig *info = (struct st_susfs_spoof_cmdline_or_bootconfig *)kzalloc(sizeof(struct st_susfs_spoof_cmdline_or_bootconfig), GFP_KERNEL);
@@ -734,6 +740,11 @@ void susfs_set_cmdline_or_bootconfig(void __user **user_info) {
 		goto out_copy_to_user;
 	}
 
+	if (*info->fake_cmdline_or_bootconfig == '\0') {
+		info->err = -EINVAL;
+		goto out_copy_to_user;
+	}
+
 	if (!fake_cmdline_or_bootconfig) {
 		fake_cmdline_or_bootconfig = (char *)kzalloc(SUSFS_FAKE_CMDLINE_OR_BOOTCONFIG_SIZE, GFP_KERNEL);
 		if (!fake_cmdline_or_bootconfig) {
@@ -742,18 +753,15 @@ void susfs_set_cmdline_or_bootconfig(void __user **user_info) {
 		}
 	}
 
-	spin_lock(&susfs_spin_lock_set_cmdline_or_bootconfig);
+	write_seqlock(&susfs_fake_cmdline_or_bootconfig_seqlock);
 	strncpy(fake_cmdline_or_bootconfig,
 			info->fake_cmdline_or_bootconfig,
 			SUSFS_FAKE_CMDLINE_OR_BOOTCONFIG_SIZE-1);
-	spin_unlock(&susfs_spin_lock_set_cmdline_or_bootconfig);
 	susfs_is_fake_cmdline_or_bootconfig_set = true;
+	write_sequnlock(&susfs_fake_cmdline_or_bootconfig_seqlock);
 	SUSFS_LOGI("fake_cmdline_or_bootconfig is set\n");
 	info->err = 0;
 out_copy_to_user:
-	if (info->err) {
-		susfs_is_fake_cmdline_or_bootconfig_set = false;
-	}
 	if (copy_to_user(&((struct st_susfs_spoof_cmdline_or_bootconfig __user*)*user_info)->err, &info->err, sizeof(info->err))) {
 		info->err = -EFAULT;
 	}
@@ -764,11 +772,18 @@ out_copy_to_user:
 }
 
 int susfs_spoof_cmdline_or_bootconfig(struct seq_file *m) {
-	if (susfs_is_fake_cmdline_or_bootconfig_set && fake_cmdline_or_bootconfig) {
-		seq_puts(m, fake_cmdline_or_bootconfig);
-		return 0;
-	}
-	return 1;
+	unsigned seq;
+	int err = -EINVAL;
+
+	do {
+		seq = read_seqbegin(&susfs_fake_cmdline_or_bootconfig_seqlock);
+		if (susfs_is_fake_cmdline_or_bootconfig_set) {
+			seq_puts(m, fake_cmdline_or_bootconfig);
+			err = 0;
+		}
+	} while (read_seqretry(&susfs_fake_cmdline_or_bootconfig_seqlock, seq));
+
+	return err;
 }
 #endif
 
@@ -894,7 +909,6 @@ out_copy_to_user:
 #endif // #ifdef CONFIG_KSU_SUSFS_SUS_MAP
 
 /* susfs avc log spoofing */
-static DEFINE_SPINLOCK(susfs_spin_lock_set_avc_log_spoofing);
 extern bool susfs_is_avc_log_spoofing_enabled;
 
 void susfs_set_avc_log_spoofing(void __user **user_info) {
@@ -905,9 +919,7 @@ void susfs_set_avc_log_spoofing(void __user **user_info) {
 		goto out_copy_to_user;
 	}
 
-	spin_lock(&susfs_spin_lock_set_avc_log_spoofing);
-	susfs_is_avc_log_spoofing_enabled = info.enabled;
-	spin_unlock(&susfs_spin_lock_set_avc_log_spoofing);
+	WRITE_ONCE(susfs_is_avc_log_spoofing_enabled, info.enabled);
 	SUSFS_LOGI("susfs_is_avc_log_spoofing_enabled: %d\n", info.enabled);
 	info.err = 0;
 out_copy_to_user:
@@ -1211,15 +1223,12 @@ void susfs_start_sdcard_monitor_fn(void) {
 	if (IS_ERR(kthread_run(susfs_sdcard_monitor_fn, NULL, "susfs_sdcard_monitor"))) {
 		SUSFS_LOGE("failed to create thread susfs_sdcard_monitor\n");
 		SUSFS_LOGI("set susfs_is_sdcard_android_data_decrypted to true\n");
-		susfs_is_sdcard_android_data_decrypted = true;
+		WRITE_ONCE(susfs_is_sdcard_android_data_decrypted, true);
 	}
 }
 
 /* susfs_init */
 void susfs_init(void) {
-#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
-	susfs_my_uname_init();
-#endif
 	SUSFS_LOGI("susfs is initialized! version: " SUSFS_VERSION " \n");
 }
 
