@@ -679,7 +679,7 @@ static void qrtr_node_assign(struct qrtr_node *node, unsigned int nid)
 	 * From other nodes sensor service stream samples
 	 * cause APPS suspend problems and power drain issue.
 	 */
-	if (!node->ws && nid != 9)
+	if (!node->ws && nid == 0)
 		node->ws = wakeup_source_register(NULL, name);
 }
 
