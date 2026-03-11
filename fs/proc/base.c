@@ -2343,6 +2343,9 @@ proc_map_files_readdir(struct file *file, struct dir_context *ctx)
 	struct map_files_info info;
 	struct map_files_info *p;
 	int ret;
+#ifdef CONFIG_KSU_SUSFS_SUS_MAP
+	struct inode *inode;
+#endif
 
 	ret = -ENOENT;
 	task = get_proc_task(file_inode(file));
@@ -2396,8 +2399,8 @@ proc_map_files_readdir(struct file *file, struct dir_context *ctx)
 			if (!vma->vm_file)
 				continue;
 #ifdef CONFIG_KSU_SUSFS_SUS_MAP
-			if (unlikely(file_inode(vma->vm_file)->i_state & BIT_SUS_MAPS) &&
-				susfs_is_current_proc_umounted())
+			inode = file_inode(vma->vm_file);
+			if (inode->i_mapping && unlikely(test_bit(AS_FLAGS_SUS_MAP, &inode->i_state) && susfs_is_current_proc_umounted_app()))
 			{
 				continue;
 			}
