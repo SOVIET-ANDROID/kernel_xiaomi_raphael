@@ -92,7 +92,7 @@ void susfs_add_sus_path(void __user **user_info) {
 
 	set_bit(AS_FLAGS_SUS_PATH, &inode->i_state);
 	SUSFS_LOGI("flagged AS_FLAGS_SUS_PATH on pathname: '%s', ino: '%lu', inode->i_state: 0x%lx\n",
-				info.target_pathname, info.target_ino, inode->i_state);
+				info.target_pathname, inode->i_ino, inode->i_state);
 	info.err = 0;
 out_path_put_path:
 	path_put(&path);
@@ -123,17 +123,13 @@ void susfs_add_sus_path_loop(void __user **user_info) {
 		info.err = -ENOMEM;
 		goto out_copy_to_user;
 	}
-	new_list->info.target_ino = info.target_ino;
 	strncpy(new_list->info.target_pathname, info.target_pathname, SUSFS_MAX_LEN_PATHNAME - 1);
 	strncpy(new_list->target_pathname, info.target_pathname, SUSFS_MAX_LEN_PATHNAME - 1);
-	new_list->info.i_uid = info.i_uid;
-	new_list->path_len = strlen(new_list->info.target_pathname);
 	INIT_LIST_HEAD(&new_list->list);
 	spin_lock(&susfs_spin_lock_sus_path);
 	list_add_tail_rcu(&new_list->list, &LH_SUS_PATH_LOOP);
 	spin_unlock(&susfs_spin_lock_sus_path);
-	SUSFS_LOGI("target_ino: '%lu', target_pathname: '%s', i_uid: '%u', is successfully added to LH_SUS_PATH_LOOP\n",
-				new_list->info.target_ino, new_list->target_pathname, new_list->info.i_uid);
+	SUSFS_LOGI("target_pathname: '%s', is successfully added to LH_SUS_PATH_LOOP\n", new_list->target_pathname);
 	info.err = 0;
 out_copy_to_user:
 	if (copy_to_user(&((struct st_susfs_sus_path __user*)*user_info)->err, &info.err, sizeof(info.err))) {
@@ -166,10 +162,13 @@ void susfs_run_sus_path_loop(void) {
 					continue;
 				}
 				set_bit(AS_FLAGS_SUS_PATH, &fi->inode.i_state);
+				SUSFS_LOGI("re-flag AS_FLAGS_SUS_PATH on path '%s', fi->inode.i_ino: '%lu', fi->inode.i_mapping->flags: 0x%lx\n",
+						cursor->target_pathname, fi->inode.i_ino, fi->inode.i_mapping->flags);
 			} else {
 				set_bit(AS_FLAGS_SUS_PATH, &inode->i_state);
+				SUSFS_LOGI("re-flag AS_FLAGS_SUS_PATH on path '%s', inode->i_ino: '%lu', inode->i_mapping->flags: 0x%lx\n",
+						cursor->target_pathname, inode->i_ino, inode->i_mapping->flags);
 			}
-			SUSFS_LOGI("re-flag AS_FLAGS_SUS_PATH on path '%s'\n", cursor->target_pathname);
 			path_put(&path);
 		}
 	}
