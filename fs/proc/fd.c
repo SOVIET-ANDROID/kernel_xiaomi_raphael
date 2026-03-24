@@ -107,7 +107,7 @@ out_kfree:
 	}
 #endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
-	if (PRE_CHECK_OPEN_REDIRECT(file_inode(file))) {
+	if (SUSFS_IS_INODE_OPEN_REDIRECT(file_inode(file))) {
 		if (susfs_open_redirect_spoof_seq_show(file_inode(file), &mnt_id, &ino))
 			goto orig_flow;
 		seq_printf(m, "pos:\t%lli\nflags:\t0%o\nmnt_id:\t%i\nino:\t%lu\n",
