@@ -1,15 +1,15 @@
 /* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
- * Copyright (C) 2021 XiaoMi, Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- */
+* Copyright (C) 2021 XiaoMi, Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 and
+* only version 2 as published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*/
 
 #include <linux/completion.h>
 #include <linux/delay.h>
@@ -31,198 +31,198 @@
 #include "usbpd.h"
 
 enum usbpd_state {
-	PE_UNKNOWN,
-	PE_ERROR_RECOVERY,
-	PE_SRC_DISABLED,
-	PE_SRC_STARTUP,
-	PE_SRC_STARTUP_WAIT_FOR_VDM_RESP,
-	PE_SRC_SEND_CAPABILITIES,
-	PE_SRC_SEND_CAPABILITIES_WAIT, /* substate to wait for Request */
-	PE_SRC_NEGOTIATE_CAPABILITY,
-	PE_SRC_TRANSITION_SUPPLY,
-	PE_SRC_READY,
-	PE_SRC_HARD_RESET,
-	PE_SRC_SOFT_RESET,
-	PE_SRC_DISCOVERY,
-	PE_SRC_TRANSITION_TO_DEFAULT,
-	PE_SNK_STARTUP,
-	PE_SNK_DISCOVERY,
-	PE_SNK_WAIT_FOR_CAPABILITIES,
-	PE_SNK_EVALUATE_CAPABILITY,
-	PE_SNK_SELECT_CAPABILITY,
-	PE_SNK_TRANSITION_SINK,
-	PE_SNK_READY,
-	PE_SNK_HARD_RESET,
-	PE_SNK_SOFT_RESET,
-	PE_SNK_TRANSITION_TO_DEFAULT,
-	PE_DRS_SEND_DR_SWAP,
-	PE_PRS_SNK_SRC_SEND_SWAP,
-	PE_PRS_SNK_SRC_TRANSITION_TO_OFF,
-	PE_PRS_SNK_SRC_SOURCE_ON,
-	PE_PRS_SRC_SNK_SEND_SWAP,
-	PE_PRS_SRC_SNK_TRANSITION_TO_OFF,
-	PE_PRS_SRC_SNK_WAIT_SOURCE_ON,
-	PE_SEND_SOFT_RESET,
-	PE_VCS_WAIT_FOR_VCONN,
+PE_UNKNOWN,
+PE_ERROR_RECOVERY,
+PE_SRC_DISABLED,
+PE_SRC_STARTUP,
+PE_SRC_STARTUP_WAIT_FOR_VDM_RESP,
+PE_SRC_SEND_CAPABILITIES,
+PE_SRC_SEND_CAPABILITIES_WAIT, /* substate to wait for Request */
+PE_SRC_NEGOTIATE_CAPABILITY,
+PE_SRC_TRANSITION_SUPPLY,
+PE_SRC_READY,
+PE_SRC_HARD_RESET,
+PE_SRC_SOFT_RESET,
+PE_SRC_DISCOVERY,
+PE_SRC_TRANSITION_TO_DEFAULT,
+PE_SNK_STARTUP,
+PE_SNK_DISCOVERY,
+PE_SNK_WAIT_FOR_CAPABILITIES,
+PE_SNK_EVALUATE_CAPABILITY,
+PE_SNK_SELECT_CAPABILITY,
+PE_SNK_TRANSITION_SINK,
+PE_SNK_READY,
+PE_SNK_HARD_RESET,
+PE_SNK_SOFT_RESET,
+PE_SNK_TRANSITION_TO_DEFAULT,
+PE_DRS_SEND_DR_SWAP,
+PE_PRS_SNK_SRC_SEND_SWAP,
+PE_PRS_SNK_SRC_TRANSITION_TO_OFF,
+PE_PRS_SNK_SRC_SOURCE_ON,
+PE_PRS_SRC_SNK_SEND_SWAP,
+PE_PRS_SRC_SNK_TRANSITION_TO_OFF,
+PE_PRS_SRC_SNK_WAIT_SOURCE_ON,
+PE_SEND_SOFT_RESET,
+PE_VCS_WAIT_FOR_VCONN,
 };
 
 static const char * const usbpd_state_strings[] = {
-	"UNKNOWN",
-	"ERROR_RECOVERY",
-	"SRC_Disabled",
-	"SRC_Startup",
-	"SRC_Startup_Wait_for_VDM_Resp",
-	"SRC_Send_Capabilities",
-	"SRC_Send_Capabilities (Wait for Request)",
-	"SRC_Negotiate_Capability",
-	"SRC_Transition_Supply",
-	"SRC_Ready",
-	"SRC_Hard_Reset",
-	"SRC_Soft_Reset",
-	"SRC_Discovery",
-	"SRC_Transition_to_default",
-	"SNK_Startup",
-	"SNK_Discovery",
-	"SNK_Wait_for_Capabilities",
-	"SNK_Evaluate_Capability",
-	"SNK_Select_Capability",
-	"SNK_Transition_Sink",
-	"SNK_Ready",
-	"SNK_Hard_Reset",
-	"SNK_Soft_Reset",
-	"SNK_Transition_to_default",
-	"DRS_Send_DR_Swap",
-	"PRS_SNK_SRC_Send_Swap",
-	"PRS_SNK_SRC_Transition_to_off",
-	"PRS_SNK_SRC_Source_on",
-	"PRS_SRC_SNK_Send_Swap",
-	"PRS_SRC_SNK_Transition_to_off",
-	"PRS_SRC_SNK_Wait_Source_on",
-	"Send_Soft_Reset",
-	"VCS_Wait_for_VCONN",
+"UNKNOWN",
+"ERROR_RECOVERY",
+"SRC_Disabled",
+"SRC_Startup",
+"SRC_Startup_Wait_for_VDM_Resp",
+"SRC_Send_Capabilities",
+"SRC_Send_Capabilities (Wait for Request)",
+"SRC_Negotiate_Capability",
+"SRC_Transition_Supply",
+"SRC_Ready",
+"SRC_Hard_Reset",
+"SRC_Soft_Reset",
+"SRC_Discovery",
+"SRC_Transition_to_default",
+"SNK_Startup",
+"SNK_Discovery",
+"SNK_Wait_for_Capabilities",
+"SNK_Evaluate_Capability",
+"SNK_Select_Capability",
+"SNK_Transition_Sink",
+"SNK_Ready",
+"SNK_Hard_Reset",
+"SNK_Soft_Reset",
+"SNK_Transition_to_default",
+"DRS_Send_DR_Swap",
+"PRS_SNK_SRC_Send_Swap",
+"PRS_SNK_SRC_Transition_to_off",
+"PRS_SNK_SRC_Source_on",
+"PRS_SRC_SNK_Send_Swap",
+"PRS_SRC_SNK_Transition_to_off",
+"PRS_SRC_SNK_Wait_Source_on",
+"Send_Soft_Reset",
+"VCS_Wait_for_VCONN",
 };
 
 enum usbpd_control_msg_type {
-	MSG_RESERVED = 0,
-	MSG_GOODCRC,
-	MSG_GOTOMIN,
-	MSG_ACCEPT,
-	MSG_REJECT,
-	MSG_PING,
-	MSG_PS_RDY,
-	MSG_GET_SOURCE_CAP,
-	MSG_GET_SINK_CAP,
-	MSG_DR_SWAP,
-	MSG_PR_SWAP,
-	MSG_VCONN_SWAP,
-	MSG_WAIT,
-	MSG_SOFT_RESET,
-	MSG_NOT_SUPPORTED = 0x10,
-	MSG_GET_SOURCE_CAP_EXTENDED,
-	MSG_GET_STATUS,
-	MSG_FR_SWAP,
-	MSG_GET_PPS_STATUS,
-	MSG_GET_COUNTRY_CODES,
+MSG_RESERVED = 0,
+MSG_GOODCRC,
+MSG_GOTOMIN,
+MSG_ACCEPT,
+MSG_REJECT,
+MSG_PING,
+MSG_PS_RDY,
+MSG_GET_SOURCE_CAP,
+MSG_GET_SINK_CAP,
+MSG_DR_SWAP,
+MSG_PR_SWAP,
+MSG_VCONN_SWAP,
+MSG_WAIT,
+MSG_SOFT_RESET,
+MSG_NOT_SUPPORTED = 0x10,
+MSG_GET_SOURCE_CAP_EXTENDED,
+MSG_GET_STATUS,
+MSG_FR_SWAP,
+MSG_GET_PPS_STATUS,
+MSG_GET_COUNTRY_CODES,
 };
 
 static const char * const usbpd_control_msg_strings[] = {
-	"", "GoodCRC", "GotoMin", "Accept", "Reject", "Ping", "PS_RDY",
-	"Get_Source_Cap", "Get_Sink_Cap", "DR_Swap", "PR_Swap", "VCONN_Swap",
-	"Wait", "Soft_Reset", "", "", "Not_Supported",
-	"Get_Source_Cap_Extended", "Get_Status", "FR_Swap", "Get_PPS_Status",
-	"Get_Country_Codes",
+"", "GoodCRC", "GotoMin", "Accept", "Reject", "Ping", "PS_RDY",
+"Get_Source_Cap", "Get_Sink_Cap", "DR_Swap", "PR_Swap", "VCONN_Swap",
+"Wait", "Soft_Reset", "", "", "Not_Supported",
+"Get_Source_Cap_Extended", "Get_Status", "FR_Swap", "Get_PPS_Status",
+"Get_Country_Codes",
 };
 
 enum usbpd_data_msg_type {
-	MSG_SOURCE_CAPABILITIES = 1,
-	MSG_REQUEST,
-	MSG_BIST,
-	MSG_SINK_CAPABILITIES,
-	MSG_BATTERY_STATUS,
-	MSG_ALERT,
-	MSG_GET_COUNTRY_INFO,
-	MSG_VDM = 0xF,
+MSG_SOURCE_CAPABILITIES = 1,
+MSG_REQUEST,
+MSG_BIST,
+MSG_SINK_CAPABILITIES,
+MSG_BATTERY_STATUS,
+MSG_ALERT,
+MSG_GET_COUNTRY_INFO,
+MSG_VDM = 0xF,
 };
 
 static const char * const usbpd_data_msg_strings[] = {
-	"", "Source_Capabilities", "Request", "BIST", "Sink_Capabilities",
-	"Battery_Status", "Alert", "Get_Country_Info", "", "", "", "", "", "",
-	"", "Vendor_Defined",
+"", "Source_Capabilities", "Request", "BIST", "Sink_Capabilities",
+"Battery_Status", "Alert", "Get_Country_Info", "", "", "", "", "", "",
+"", "Vendor_Defined",
 };
 
 enum usbpd_ext_msg_type {
-	MSG_SOURCE_CAPABILITIES_EXTENDED = 1,
-	MSG_STATUS,
-	MSG_GET_BATTERY_CAP,
-	MSG_GET_BATTERY_STATUS,
-	MSG_BATTERY_CAPABILITIES,
-	MSG_GET_MANUFACTURER_INFO,
-	MSG_MANUFACTURER_INFO,
-	MSG_SECURITY_REQUEST,
-	MSG_SECURITY_RESPONSE,
-	MSG_FIRMWARE_UPDATE_REQUEST,
-	MSG_FIRMWARE_UPDATE_RESPONSE,
-	MSG_PPS_STATUS,
-	MSG_COUNTRY_INFO,
-	MSG_COUNTRY_CODES,
+MSG_SOURCE_CAPABILITIES_EXTENDED = 1,
+MSG_STATUS,
+MSG_GET_BATTERY_CAP,
+MSG_GET_BATTERY_STATUS,
+MSG_BATTERY_CAPABILITIES,
+MSG_GET_MANUFACTURER_INFO,
+MSG_MANUFACTURER_INFO,
+MSG_SECURITY_REQUEST,
+MSG_SECURITY_RESPONSE,
+MSG_FIRMWARE_UPDATE_REQUEST,
+MSG_FIRMWARE_UPDATE_RESPONSE,
+MSG_PPS_STATUS,
+MSG_COUNTRY_INFO,
+MSG_COUNTRY_CODES,
 };
 
 static const char * const usbpd_ext_msg_strings[] = {
-	"", "Source_Capabilities_Extended", "Status", "Get_Battery_Cap",
-	"Get_Battery_Status", "Get_Manufacturer_Info", "Manufacturer_Info",
-	"Security_Request", "Security_Response", "Firmware_Update_Request",
-	"Firmware_Update_Response", "PPS_Status", "Country_Info",
-	"Country_Codes",
+"", "Source_Capabilities_Extended", "Status", "Get_Battery_Cap",
+"Get_Battery_Status", "Get_Manufacturer_Info", "Manufacturer_Info",
+"Security_Request", "Security_Response", "Firmware_Update_Request",
+"Firmware_Update_Response", "PPS_Status", "Country_Info",
+"Country_Codes",
 };
 
 static inline const char *msg_to_string(u8 id, bool is_data, bool is_ext)
 {
-	if (is_ext) {
-		if (id < ARRAY_SIZE(usbpd_ext_msg_strings))
-			return usbpd_ext_msg_strings[id];
-	} else if (is_data) {
-		if (id < ARRAY_SIZE(usbpd_data_msg_strings))
-			return usbpd_data_msg_strings[id];
-	} else if (id < ARRAY_SIZE(usbpd_control_msg_strings)) {
-		return usbpd_control_msg_strings[id];
-	}
+if (is_ext) {
+if (id < ARRAY_SIZE(usbpd_ext_msg_strings))
+	return usbpd_ext_msg_strings[id];
+} else if (is_data) {
+if (id < ARRAY_SIZE(usbpd_data_msg_strings))
+	return usbpd_data_msg_strings[id];
+} else if (id < ARRAY_SIZE(usbpd_control_msg_strings)) {
+return usbpd_control_msg_strings[id];
+}
 
-	return "Invalid";
+return "Invalid";
 }
 
 enum vdm_state {
-	VDM_NONE,
-	DISCOVERED_ID,
-	DISCOVERED_SVIDS,
-	DISCOVERED_MODES,
-	MODE_ENTERED,
-	MODE_EXITED,
+VDM_NONE,
+DISCOVERED_ID,
+DISCOVERED_SVIDS,
+DISCOVERED_MODES,
+MODE_ENTERED,
+MODE_EXITED,
 };
 
 static void *usbpd_ipc_log;
 #define usbpd_dbg(dev, fmt, ...) do { \
-	ipc_log_string(usbpd_ipc_log, "%s: %s: " fmt, dev_name(dev), __func__, \
-			##__VA_ARGS__); \
-	dev_dbg(dev, fmt, ##__VA_ARGS__); \
-	} while (0)
+ipc_log_string(usbpd_ipc_log, "%s: %s: " fmt, dev_name(dev), __func__, \
+	##__VA_ARGS__); \
+dev_dbg(dev, fmt, ##__VA_ARGS__); \
+} while (0)
 
 #define usbpd_info(dev, fmt, ...) do { \
-	ipc_log_string(usbpd_ipc_log, "%s: %s: " fmt, dev_name(dev), __func__, \
-			##__VA_ARGS__); \
-	dev_info(dev, fmt, ##__VA_ARGS__); \
-	} while (0)
+ipc_log_string(usbpd_ipc_log, "%s: %s: " fmt, dev_name(dev), __func__, \
+	##__VA_ARGS__); \
+dev_info(dev, fmt, ##__VA_ARGS__); \
+} while (0)
 
 #define usbpd_warn(dev, fmt, ...) do { \
-	ipc_log_string(usbpd_ipc_log, "%s: %s: " fmt, dev_name(dev), __func__, \
-			##__VA_ARGS__); \
-	dev_warn(dev, fmt, ##__VA_ARGS__); \
-	} while (0)
+ipc_log_string(usbpd_ipc_log, "%s: %s: " fmt, dev_name(dev), __func__, \
+	##__VA_ARGS__); \
+dev_warn(dev, fmt, ##__VA_ARGS__); \
+} while (0)
 
 #define usbpd_err(dev, fmt, ...) do { \
-	ipc_log_string(usbpd_ipc_log, "%s: %s: " fmt, dev_name(dev), __func__, \
-			##__VA_ARGS__); \
-	dev_err(dev, fmt, ##__VA_ARGS__); \
-	} while (0)
+ipc_log_string(usbpd_ipc_log, "%s: %s: " fmt, dev_name(dev), __func__, \
+	##__VA_ARGS__); \
+dev_err(dev, fmt, ##__VA_ARGS__); \
+} while (0)
 
 #define NUM_LOG_PAGES		10
 
@@ -263,8 +263,8 @@ static void *usbpd_ipc_log;
 #define PD_MAX_EXT_MSG_LEGACY_LEN	26
 
 #define PD_MSG_HDR(type, dr, pr, id, cnt, rev) \
-	(((type) & 0x1F) | ((dr) << 5) | (rev << 6) | \
-	 ((pr) << 8) | ((id) << 9) | ((cnt) << 12))
+(((type) & 0x1F) | ((dr) << 5) | (rev << 6) | \
+((pr) << 8) | ((id) << 9) | ((cnt) << 12))
 #define PD_MSG_HDR_COUNT(hdr)		(((hdr) >> 12) & 7)
 #define PD_MSG_HDR_TYPE(hdr)		((hdr) & 0x1F)
 #define PD_MSG_HDR_ID(hdr)		(((hdr) >> 9) & 7)
@@ -273,21 +273,21 @@ static void *usbpd_ipc_log;
 #define PD_MSG_HDR_IS_EXTENDED(hdr)	((hdr) & PD_MSG_HDR_EXTENDED)
 
 #define PD_MSG_EXT_HDR(chunked, num, req, size) \
-	(((chunked) << 15) | (((num) & 0xF) << 11) | \
-	 ((req) << 10) | ((size) & 0x1FF))
+(((chunked) << 15) | (((num) & 0xF) << 11) | \
+((req) << 10) | ((size) & 0x1FF))
 #define PD_MSG_EXT_HDR_IS_CHUNKED(ehdr)	((ehdr) & 0x8000)
 #define PD_MSG_EXT_HDR_CHUNK_NUM(ehdr)	(((ehdr) >> 11) & 0xF)
 #define PD_MSG_EXT_HDR_REQ_CHUNK(ehdr)	((ehdr) & 0x400)
 #define PD_MSG_EXT_HDR_DATA_SIZE(ehdr)	((ehdr) & 0x1FF)
 
 #define PD_RDO_FIXED(obj, gb, mismatch, usb_comm, no_usb_susp, curr1, curr2) \
-		(((obj) << 28) | ((gb) << 27) | ((mismatch) << 26) | \
-		 ((usb_comm) << 25) | ((no_usb_susp) << 24) | \
-		 ((curr1) << 10) | (curr2))
+(((obj) << 28) | ((gb) << 27) | ((mismatch) << 26) | \
+ ((usb_comm) << 25) | ((no_usb_susp) << 24) | \
+ ((curr1) << 10) | (curr2))
 
 #define PD_RDO_AUGMENTED(obj, mismatch, usb_comm, no_usb_susp, volt, curr) \
-		(((obj) << 28) | ((mismatch) << 26) | ((usb_comm) << 25) | \
-		 ((no_usb_susp) << 24) | ((volt) << 9) | (curr))
+(((obj) << 28) | ((mismatch) << 26) | ((usb_comm) << 25) | \
+ ((no_usb_susp) << 24) | ((volt) << 9) | (curr))
 
 #define PD_RDO_OBJ_POS(rdo)		((rdo) >> 28 & 7)
 #define PD_RDO_GIVEBACK(rdo)		((rdo) >> 27 & 1)
@@ -329,8 +329,8 @@ static void *usbpd_ipc_log;
 #define MAX_VDM_BUSY_TIME	100 /* 2 * tVDMBusy (50ms) */
 
 #define PD_SNK_PDO_FIXED(prs, hc, uc, usb_comm, drs, volt, curr) \
-	(((prs) << 29) | ((hc) << 28) | ((uc) << 27) | ((usb_comm) << 26) | \
-	 ((drs) << 25) | ((volt) << 10) | (curr))
+(((prs) << 29) | ((hc) << 28) | ((uc) << 27) | ((usb_comm) << 26) | \
+((drs) << 25) | ((volt) << 10) | (curr))
 
 /* VDM header is the first 32-bit object following the 16-bit PD header */
 #define VDM_HDR_SVID(hdr)	((hdr) >> 16)
@@ -341,8 +341,8 @@ static void *usbpd_ipc_log;
 #define SVDM_HDR_CMD(hdr)	((hdr) & 0x1f)
 
 #define SVDM_HDR(svid, ver, obj, cmd_type, cmd) \
-	(((svid) << 16) | (1 << 15) | ((ver) << 13) \
-	| ((obj) << 8) | ((cmd_type) << 6) | (cmd))
+(((svid) << 16) | (1 << 15) | ((ver) << 13) \
+| ((obj) << 8) | ((cmd_type) << 6) | (cmd))
 
 /* discover id response vdo bit fields */
 #define ID_HDR_USB_HOST		BIT(31)
@@ -361,7 +361,7 @@ static void *usbpd_ipc_log;
 
 #define PD_VBUS_MAX_VOLTAGE_LIMIT	9000000
 #define PD_MAX_CURRENT_LIMIT		4000000
-#define MAX_FIXED_PDO_MA		2000
+#define MAX_FIXED_PDO_MA		2500
 #define MAX_NON_COMPLIANT_PPS_UA		2000000
 
 static bool check_vsafe0v = true;
@@ -399,6 +399,7 @@ struct usbpd {
 	struct work_struct	sm_work;
 	struct work_struct	start_periph_work;
 	struct work_struct	restart_host_work;
+    struct delayed_work	request_9v_after_verify_work;
 	struct hrtimer		timer;
 	bool			sm_queued;
 
@@ -1913,6 +1914,17 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 					SVDM_CMD_TYPE_INITIATOR, 0, NULL, 0);
 
 		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
+
+    	if (pd->current_pr == PR_SINK &&
+    			pd->selected_pdo <= 1 &&
+    			pd->received_pdos[1] &&
+    			PD_SRC_PDO_TYPE(pd->received_pdos[1]) == PD_SRC_PDO_TYPE_FIXED &&
+    			PD_SRC_PDO_FIXED_VOLTAGE(pd->received_pdos[1]) * 50 == 9000) {
+    		usbpd_info(&pd->dev, "SNK_READY: schedule generic PDO2 request\n");
+    		schedule_delayed_work(&pd->request_9v_after_verify_work,
+    				msecs_to_jiffies(700));
+    	}
+
 		complete(&pd->is_ready);
 		break;
 
@@ -2681,6 +2693,104 @@ static inline bool is_sink_tx_ok(struct usbpd *pd)
 	return true;
 }
 
+static void request_9v_after_verify_work(struct work_struct *w)
+{
+	struct usbpd *pd = container_of(to_delayed_work(w),
+			struct usbpd, request_9v_after_verify_work);
+	u32 pdo;
+	int ret;
+	bool retry = false;
+
+	mutex_lock(&pd->swap_lock);
+
+	usbpd_err(&pd->dev,
+		"9V work: verifed=%d state=%s pr=%d selected=%d requested=%d src_cap_id=%d\n",
+		pd->verifed,
+		usbpd_state_strings[pd->current_state],
+		pd->current_pr,
+		pd->selected_pdo,
+		pd->requested_pdo,
+		pd->src_cap_id);
+
+    if (!pd->verifed)
+    	usbpd_info(&pd->dev,
+    		"9V work: charger not verified, trying generic PD path\n");
+
+	if (pd->current_pr != PR_SINK) {
+		usbpd_err(&pd->dev, "9V work: skip, not sink\n");
+		goto out;
+	}
+
+	if (pd->current_state != PE_SNK_READY || !is_sink_tx_ok(pd)) {
+		usbpd_err(&pd->dev, "9V work: sink not ready, retry later\n");
+		retry = true;
+		goto out;
+	}
+
+	pdo = pd->received_pdos[1]; /* PDO2 */
+	if (!pdo) {
+		usbpd_err(&pd->dev, "9V work: PDO2 missing\n");
+		goto out;
+	}
+
+	if (PD_SRC_PDO_TYPE(pdo) != PD_SRC_PDO_TYPE_FIXED) {
+		usbpd_err(&pd->dev, "9V work: PDO2 not fixed\n");
+		goto out;
+	}
+
+	if (PD_SRC_PDO_FIXED_VOLTAGE(pdo) * 50 != 9000) {
+		usbpd_err(&pd->dev, "9V work: PDO2 is not 9V\n");
+		goto out;
+	}
+
+	if (pd->selected_pdo == 2 && pd->requested_pdo == 2) {
+		usbpd_err(&pd->dev, "9V work: already on PDO2\n");
+		goto out;
+	}
+
+	usbpd_err(&pd->dev, "9V work: requesting PDO2\n");
+
+	ret = pd_select_pdo(pd, 2, 0, 0);
+	if (ret) {
+		usbpd_err(&pd->dev, "9V work: pd_select_pdo failed ret=%d\n", ret);
+		retry = true;
+		goto out;
+	}
+
+	reinit_completion(&pd->is_ready);
+	pd->send_request = true;
+	kick_sm(pd, 0);
+
+	if (!wait_for_completion_timeout(&pd->is_ready,
+			msecs_to_jiffies(1000))) {
+		usbpd_err(&pd->dev, "9V work: request timed out\n");
+		pd->send_request = false;
+		retry = true;
+		goto out;
+	}
+
+	if (pd->selected_pdo != pd->requested_pdo ||
+			pd->current_voltage != pd->requested_voltage) {
+		usbpd_err(&pd->dev,
+			"9V work: request rejected sel=%d req=%d cur_v=%d req_v=%d\n",
+			pd->selected_pdo, pd->requested_pdo,
+			pd->current_voltage, pd->requested_voltage);
+		pd->send_request = false;
+		retry = true;
+		goto out;
+	}
+
+	usbpd_err(&pd->dev, "9V work: PDO2 accepted\n");
+
+out:
+	mutex_unlock(&pd->swap_lock);
+
+	if (retry && pd->verifed) {
+		schedule_delayed_work(&pd->request_9v_after_verify_work,
+				msecs_to_jiffies(500));
+	}
+}
+
 /* Handles current state and determines transitions */
 static void usbpd_sm(struct work_struct *w)
 {
@@ -2731,6 +2841,7 @@ static void usbpd_sm(struct work_struct *w)
 		pd->requested_voltage = 0;
 		pd->requested_current = 0;
 		pd->selected_pdo = pd->requested_pdo = 0;
+        cancel_delayed_work_sync(&pd->request_9v_after_verify_work);
 		pd->peer_usb_comm = pd->peer_pr_swap = pd->peer_dr_swap = false;
 		memset(&pd->received_pdos, 0, sizeof(pd->received_pdos));
 		rx_msg_cleanup(pd);
@@ -2819,6 +2930,7 @@ static void usbpd_sm(struct work_struct *w)
 
 		pd->in_explicit_contract = false;
 		pd->selected_pdo = pd->requested_pdo = 0;
+        cancel_delayed_work_sync(&pd->request_9v_after_verify_work);
 		pd->rdo = 0;
 		rx_msg_cleanup(pd);
 		reset_vdm_state(pd);
@@ -4635,6 +4747,7 @@ static ssize_t usbpd_verifed_store(struct device *dev,
 		pd->verifed = 0;
 		return -EINVAL;
 	}
+
 	usbpd_err(&pd->dev, "batterysecret set usbpd verifed :%d\n", val);
 
 	pd->verifed = val;
@@ -4645,6 +4758,9 @@ static ssize_t usbpd_verifed_store(struct device *dev,
 			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 			return size;
 		}
+
+		schedule_delayed_work(&pd->request_9v_after_verify_work,
+				msecs_to_jiffies(500));
 	}
 
 	return size;
@@ -5255,6 +5371,7 @@ struct usbpd *usbpd_create(struct device *parent)
 	INIT_WORK(&pd->sm_work, usbpd_sm);
 	INIT_WORK(&pd->start_periph_work, start_usb_peripheral_work);
 	INIT_WORK(&pd->restart_host_work, restart_usb_host_work);
+    INIT_DELAYED_WORK(&pd->request_9v_after_verify_work, request_9v_after_verify_work);
 	hrtimer_init(&pd->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	pd->timer.function = pd_timeout;
 	mutex_init(&pd->swap_lock);
