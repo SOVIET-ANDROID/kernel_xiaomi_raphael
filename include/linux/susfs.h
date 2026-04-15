@@ -214,8 +214,8 @@ void susfs_set_hide_sus_mnts_for_non_su_procs(void __user **user_info);
 #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 void susfs_add_sus_kstat(void __user **user_info);
 void susfs_update_sus_kstat(void __user **user_info);
-void susfs_sus_ino_for_generic_fillattr(unsigned long ino, struct kstat *stat);
-void susfs_sus_ino_for_show_map_vma(unsigned long ino, dev_t *out_dev, unsigned long *out_ino);
+void susfs_generic_fillattr_spoofer(struct inode *inode, struct kstat *stat);
+void susfs_show_map_vma_spoofer(struct inode *inode, dev_t *out_dev, unsigned long *out_ino);
 #endif
 /* try_umount */
 #ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
