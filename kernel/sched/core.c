@@ -5327,8 +5327,7 @@ recheck:
 			return -EINVAL;
 	}
 
-	if (attr->sched_flags &
-		~(SCHED_FLAG_RESET_ON_FORK | SCHED_FLAG_RECLAIM))
+	if (attr->sched_flags & ~SCHED_FLAG_ALL)
 		return -EINVAL;
 
 	/*
@@ -5831,6 +5830,8 @@ SYSCALL_DEFINE3(sched_setattr, pid_t, pid, struct sched_attr __user *, uattr,
 	rcu_read_unlock();
 
 	if (likely(p)) {
+		if (attr.sched_flags & SCHED_FLAG_KEEP_PARAMS)
+			get_params(p, &attr);
 		retval = sched_setattr(p, &attr);
 		put_task_struct(p);
 	}
