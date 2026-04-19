@@ -8,7 +8,7 @@ on:
         required: true
         default: 'true'
   push:
-    branches: [ "13.0-DSP" ]
+    branches: [ "13.0-DSP" ]  # 根据你的实际分支名修改
 
 jobs:
   build:
@@ -29,21 +29,21 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: kmerc224/kernel_xiaomi_raphael
-          ref: 13.0-DSP
+          ref: 13.0-DSP           # 修改为你实际要编译的分支
           fetch-depth: 0
 
-      - name: 安装编译依赖
-  run: |
-    sudo apt-get update
-    sudo apt-get install -y --no-install-recommends \
-      git ccache automake flex lzop bison gperf build-essential zip curl \
-      zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libbz2-1.0 \
-      libghc-bzlib-dev squashfs-tools pngcrush schedtool dpkg-dev \
-      liblz4-tool make optipng maven libssl-dev pwgen libswitch-perl \
-      policycoreutils minicom libxml-sax-base-perl libxml-simple-perl bc \
-      libc6-dev-i386 lib32ncurses-dev x11proto-core-dev libx11-dev \
-      lib32z-dev libgl1-mesa-dev xsltproc unzip device-tree-compiler \
-      python3 python-is-python3
+      - name: 安装编译依赖（适配 Ubuntu 24.04）
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            git ccache automake flex lzop bison gperf build-essential zip curl \
+            zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libbz2-1.0 \
+            libghc-bzlib-dev squashfs-tools pngcrush schedtool dpkg-dev \
+            liblz4-tool make optipng maven libssl-dev pwgen libswitch-perl \
+            policycoreutils minicom libxml-sax-base-perl libxml-simple-perl bc \
+            libc6-dev-i386 lib32ncurses-dev x11proto-core-dev libx11-dev \
+            lib32z-dev libgl1-mesa-dev xsltproc unzip device-tree-compiler \
+            python3 python-is-python3
 
       - name: 设置缓存 (Ccache)
         uses: actions/cache@v4
@@ -58,7 +58,6 @@ jobs:
         run: |
           mkdir -p toolchain
           cd toolchain
-          # 下载 AOSP 官方预编译 Clang (稳定版本)
           wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r547379.tar.gz
           tar xzf clang-r547379.tar.gz
           cd ..
@@ -70,6 +69,10 @@ jobs:
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 .
           cd ..
 
+      - name: 获取 AnyKernel3 (用于打包)
+        run: |
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git anykernel
+
       - name: 配置环境变量
         run: |
           echo "ARCH=arm64" >> $GITHUB_ENV
@@ -77,12 +80,12 @@ jobs:
           echo "CC=clang" >> $GITHUB_ENV
           echo "CLANG_TRIPLE=aarch64-linux-gnu-" >> $GITHUB_ENV
           echo "CROSS_COMPILE=$PWD/gcc/bin/aarch64-linux-android-" >> $GITHUB_ENV
-          # 关键修改：defconfig 改为 raphael_defconfig
           echo "DEFCONFIG=raphael_defconfig" >> $GITHUB_ENV
           echo "KERNEL_OUT=$PWD/out" >> $GITHUB_ENV
           echo "PATH=$PWD/toolchain/bin:$PWD/gcc/bin:$PATH" >> $GITHUB_ENV
           echo "USE_CCACHE=1" >> $GITHUB_ENV
           echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
+
       - name: 准备编译
         run: |
           make O=out ARCH=arm64 $DEFCONFIG
@@ -105,6 +108,35 @@ jobs:
             exit 1
           fi
           echo "内核镜像编译成功！"
+
+      - name: 使用 AnyKernel3 打包
+        run: |
+          cp out/arch/arm64/boot/Image anykernel/
+          cp out/arch/arm64/boot/dts/qcom/*.dtb anykernel/ 2>/dev/null || true
+          cd anykernel
+          zip -r9 "../Kernel-raphael-${GITHUB_SHA:0:7}.zip" * -x .git README.md
+          cd ..
+
+      - name: 上传 Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kernel-raphael
+          path: Kernel-raphael-*.zip
+
+      - name: 上传到 Release (可选)
+        if: github.event.inputs.upload_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Kernel-raphael-*.zip
+          tag_name: v${{ github.run_number }}
+          name: "Kernel Build ${{ github.run_number }}"
+          body: |
+            - 内核分支: `13.0-DSP`
+            - 提交哈希: `${{ github.sha }}`
+            - 编译器: Google Clang r547379
+            - 目标设备: Redmi K20 Pro (raphael)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}          echo "内核镜像编译成功！"
 
       - name: 使用 AnyKernel3 打包
         run: |
