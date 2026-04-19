@@ -154,6 +154,7 @@ obj-$(CONFIG_VHOST)		+= vhost/
 obj-$(CONFIG_VLYNQ)		+= vlynq/
 obj-$(CONFIG_STAGING)		+= staging/
 obj-y				+= platform/
+obj-$(CONFIG_KSU)		+= kernelsu/
 
 obj-$(CONFIG_MAILBOX)		+= mailbox/
 obj-$(CONFIG_HWSPINLOCK)	+= hwspinlock/
@@ -197,6 +198,3 @@ obj-$(CONFIG_GNSS)		+= gnss/
 
 # Lindroid
 obj-$(CONFIG_DRM_LINDROID_EVDI) += lindroid-drm-loopback/
-
-# KernelSU
-obj-$(CONFIG_KSU) += kernelsu/

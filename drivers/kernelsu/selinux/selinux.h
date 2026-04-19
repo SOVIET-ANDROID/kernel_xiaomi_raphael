@@ -1,9 +1,9 @@
 #ifndef __KSU_H_SELINUX
 #define __KSU_H_SELINUX
 
-#include "linux/types.h"
-#include "linux/version.h"
-#include "linux/cred.h"
+#include <linux/types.h>
+#include <linux/version.h>
+#include <linux/cred.h>
 
 #include "objsec.h"
 #include "security.h" // Samsung SELinux Porting
@@ -31,8 +31,7 @@ static inline u32 current_sid(void)
 }
 #endif
 
-// TODO: rename to "ksu"
-#define KERNEL_SU_DOMAIN "su"
+#define KERNEL_SU_DOMAIN "ksu"
 #define KERNEL_SU_FILE "ksu_file"
 
 #define KERNEL_SU_CONTEXT "u:r:" KERNEL_SU_DOMAIN ":s0"
@@ -58,8 +57,10 @@ bool is_init(const struct cred* cred);
 
 void apply_kernelsu_rules();
 
-int handle_sepolicy(unsigned long arg3, void __user *arg4);
+int handle_sepolicy(void __user *user_data, u64 data_len);
 
 void setup_ksu_cred();
+
+extern u32 ksu_file_sid;
 
 #endif
