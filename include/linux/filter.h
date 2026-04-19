@@ -651,14 +651,14 @@ DECLARE_STATIC_KEY_FALSE(bpf_stats_enabled_key);
 	if (static_branch_unlikely(&bpf_stats_enabled_key)) {	\
 		struct bpf_prog_stats *stats;			\
 		u64 start = sched_clock();			\
-		ret = (*(prog)->bpf_func)(ctx, (prog)->insnsi);	\
+		ret = bpf_call_func(prog, ctx);			\
 		stats = this_cpu_ptr(prog->aux->stats);		\
 		u64_stats_update_begin(&stats->syncp);		\
 		stats->cnt++;					\
 		stats->nsecs += sched_clock() - start;		\
 		u64_stats_update_end(&stats->syncp);		\
 	} else {						\
-		ret = (*(prog)->bpf_func)(ctx, (prog)->insnsi);	\
+		ret = bpf_call_func(prog, ctx);			\
 	}							\
 	ret; })
 
