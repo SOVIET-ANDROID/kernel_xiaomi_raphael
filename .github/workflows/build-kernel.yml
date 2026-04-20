@@ -54,12 +54,12 @@ jobs:
             ccache-${{ runner.os }}-${{ github.ref_name }}-
             ccache-${{ runner.os }}-
 
-      - name: 获取 Google 官方 Clang 工具链
+      - name: 获取 Clang 工具链 (r510928 - 兼容 v4.19 内核)
         run: |
           mkdir -p toolchain
           cd toolchain
-          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r547379.tar.gz
-          tar xzf clang-r547379.tar.gz
+          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/master/clang-r510928.tar.gz
+          tar xzf clang-r510928.tar.gz
           cd ..
 
       - name: 获取 GCC 工具链 (aarch64)
@@ -95,6 +95,7 @@ jobs:
           export PATH=$PATH
           make -j$(nproc) O=out \
             ARCH=arm64 \
+            LLVM=1 \
             CC=clang \
             CLANG_TRIPLE=aarch64-linux-gnu- \
             CROSS_COMPILE=aarch64-linux-android- \
@@ -132,35 +133,6 @@ jobs:
           name: "Kernel Build ${{ github.run_number }}"
           body: |
             - 内核分支: `13.0-DSP`
-            - 提交哈希: `${{ github.sha }}`
-            - 编译器: Google Clang r547379
-            - 目标设备: Redmi K20 Pro (raphael)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}          echo "内核镜像编译成功！"
-
-      - name: 使用 AnyKernel3 打包
-        run: |
-          cp out/arch/arm64/boot/Image anykernel/
-          cp out/arch/arm64/boot/dts/qcom/*.dtb anykernel/ 2>/dev/null || true
-          cd anykernel
-          zip -r9 "../Kernel-raphael-${GITHUB_SHA:0:7}.zip" * -x .git README.md
-          cd ..
-
-      - name: 上传 Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: Kernel-raphael
-          path: Kernel-raphael-*.zip
-
-      - name: 上传到 Release (可选)
-        if: github.event.inputs.upload_release == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: Kernel-raphael-*.zip
-          tag_name: v${{ github.run_number }}
-          name: "Kernel Build ${{ github.run_number }}"
-          body: |
-            - 内核分支: `15-susfs`
             - 提交哈希: `${{ github.sha }}`
             - 编译器: Clang r510928
             - 目标设备: Redmi K20 Pro (raphael)
