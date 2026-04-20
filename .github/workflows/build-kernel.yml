@@ -54,13 +54,13 @@ jobs:
             ccache-${{ runner.os }}-${{ github.ref_name }}-
             ccache-${{ runner.os }}-
 
-      - name: 获取 Clang 工具链 (LineageOS 19.1 预编译版，稳定可靠)
+      - name: 获取 Clang 工具链 (稳定预编译包，专为 GitHub Actions 设计)
         run: |
           mkdir -p toolchain
           cd toolchain
-          # 从 LineageOS 的 GitHub 仓库下载，专为 Android 12/13 内核适配
-          wget -q https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b/archive/refs/heads/lineage-19.1.tar.gz
-          tar xzf lineage-19.1.tar.gz --strip-components=1
+          # 使用 Zackptg5 维护的 Clang 预编译包，稳定可靠
+          wget -q https://github.com/Zackptg5/Clang-18.0.0/releases/download/v1.0/Clang-18.0.0-20240113.tar.gz
+          tar xzf Clang-18.0.0-20240113.tar.gz
           cd ..
 
       - name: 获取 GCC 工具链 (aarch64)
@@ -135,7 +135,7 @@ jobs:
           body: |
             - 内核分支: `13.0-DSP`
             - 提交哈希: `${{ github.sha }}`
-            - 编译器: LineageOS Clang r416183b
+            - 编译器: Clang 18.0.0
             - 目标设备: Redmi K20 Pro (raphael)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
