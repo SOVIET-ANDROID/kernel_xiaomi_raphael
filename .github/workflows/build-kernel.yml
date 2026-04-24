@@ -58,8 +58,11 @@ jobs:
         run: |
           mkdir -p toolchain
           cd toolchain
-          # 从 LineageOS 镜像克隆，确保链接长期可用
-          git clone --depth=1 https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r498229b .
+          # 尝试两个可能的仓库名，用 wget 避免 git 认证问题
+          wget -q -O clang.tar.gz "https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r498229b/archive/refs/heads/lineage-20.0.tar.gz" \
+            || wget -q -O clang.tar.gz "https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r498229/archive/refs/heads/lineage-20.0.tar.gz"
+          tar xzf clang.tar.gz --strip-components=1
+          rm clang.tar.gz
           cd ..
 
       - name: 获取 GCC 交叉编译器 (aarch64)
