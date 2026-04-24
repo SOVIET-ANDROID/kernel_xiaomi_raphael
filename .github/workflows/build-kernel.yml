@@ -1,4 +1,4 @@
-name: Build Android Kernel for raphael
+name: Build Android Kernel for raphael (Clang r498229)
 
 on:
   workflow_dispatch:
@@ -32,7 +32,7 @@ jobs:
           ref: 13.0-DSP
           fetch-depth: 0
 
-      - name: 安装编译依赖（包含系统 Clang 14）
+      - name: 安装编译依赖
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -43,11 +43,7 @@ jobs:
             policycoreutils minicom libxml-sax-base-perl libxml-simple-perl bc \
             libc6-dev-i386 lib32ncurses-dev x11proto-core-dev libx11-dev \
             lib32z-dev libgl1-mesa-dev xsltproc unzip device-tree-compiler \
-            python3 python-is-python3 clang-14 lld-14
-          # 将 clang-14 设置为默认 clang
-          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-14 100
-          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-14 100
-          sudo update-alternatives --install /usr/bin/ld.lld ld.lld /usr/bin/ld.lld-14 100
+            python3 python-is-python3
 
       - name: 设置缓存 (Ccache)
         uses: actions/cache@v4
@@ -58,14 +54,22 @@ jobs:
             ccache-${{ runner.os }}-${{ github.ref_name }}-
             ccache-${{ runner.os }}-
 
-      - name: 获取 GCC 工具链 (aarch64)
+      - name: 获取 Clang 工具链 (AOSP r498229b)
+        run: |
+          mkdir -p toolchain
+          cd toolchain
+          # 从 LineageOS 镜像克隆，确保链接长期可用
+          git clone --depth=1 https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r498229b .
+          cd ..
+
+      - name: 获取 GCC 交叉编译器 (aarch64)
         run: |
           mkdir -p gcc
           cd gcc
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 .
           cd ..
 
-      - name: 获取 AnyKernel3 (用于打包)
+      - name: 获取 AnyKernel3
         run: |
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git anykernel
 
@@ -73,52 +77,44 @@ jobs:
         run: |
           echo "ARCH=arm64" >> $GITHUB_ENV
           echo "SUBARCH=arm64" >> $GITHUB_ENV
-          echo "CC=clang" >> $GITHUB_ENV
-          echo "CLANG_TRIPLE=aarch64-linux-gnu-" >> $GITHUB_ENV
-          echo "CROSS_COMPILE=$PWD/gcc/bin/aarch64-linux-android-" >> $GITHUB_ENV
           echo "DEFCONFIG=raphael_defconfig" >> $GITHUB_ENV
           echo "KERNEL_OUT=$PWD/out" >> $GITHUB_ENV
-          echo "PATH=$PWD/gcc/bin:$PATH" >> $GITHUB_ENV
+          echo "PATH=$PWD/toolchain/bin:$PWD/gcc/bin:$PATH" >> $GITHUB_ENV
           echo "USE_CCACHE=1" >> $GITHUB_ENV
           echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
 
       - name: 准备编译
         run: |
-          make O=out ARCH=arm64 $DEFCONFIG
+          make LLVM=1 LLVM_IAS=1 CC="ccache clang" O=out ARCH=arm64 $DEFCONFIG
 
       - name: 编译内核
         run: |
-          make -j$(nproc) O=out \
-            ARCH=arm64 \
-            CC=clang \
-            CLANG_TRIPLE=aarch64-linux-gnu- \
-            CROSS_COMPILE=aarch64-linux-android- \
-            CROSS_COMPILE_ARM32=arm-linux-androideabi-
+          make LLVM=1 LLVM_IAS=1 CC="ccache clang" -j$(nproc) O=out ARCH=arm64
         timeout-minutes: 120
 
       - name: 验证编译结果
         run: |
-          if [ ! -f out/arch/arm64/boot/Image ]; then
-            echo "内核镜像编译失败！"
+          if [ ! -f out/arch/arm64/boot/Image.gz-dtb ]; then
+            echo "错误：未找到 Image.gz-dtb，编译失败！"
             exit 1
           fi
-          echo "内核镜像编译成功！"
+          echo "编译成功，生成 Image.gz-dtb"
 
-      - name: 使用 AnyKernel3 打包
+      - name: 打包 AnyKernel3
         run: |
-          cp out/arch/arm64/boot/Image anykernel/
-          cp out/arch/arm64/boot/dts/qcom/*.dtb anykernel/ 2>/dev/null || true
+          cp out/arch/arm64/boot/Image.gz-dtb anykernel/
+          cp out/arch/arm64/boot/dtbo.img anykernel/ 2>/dev/null || true
           cd anykernel
           zip -r9 "../Kernel-raphael-${GITHUB_SHA:0:7}.zip" * -x .git README.md
           cd ..
 
-      - name: 上传 Artifacts
+      - name: 上传 Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Kernel-raphael
           path: Kernel-raphael-*.zip
 
-      - name: 上传到 Release (可选)
+      - name: 发布 Release (可选)
         if: github.event.inputs.upload_release == 'true'
         uses: softprops/action-gh-release@v2
         with:
@@ -126,9 +122,8 @@ jobs:
           tag_name: v${{ github.run_number }}
           name: "Kernel Build ${{ github.run_number }}"
           body: |
-            - 内核分支: `13.0-DSP`
-            - 提交哈希: `${{ github.sha }}`
-            - 编译器: Ubuntu Clang 14
-            - 目标设备: Redmi K20 Pro (raphael)
+            - 分支: `13.0-DSP`
+            - 编译器: AOSP Clang r498229b
+            - 设备: Redmi K20 Pro (raphael)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
