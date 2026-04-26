@@ -562,6 +562,14 @@ void call_rcu_tasks_trace(struct rcu_head *rhp, rcu_callback_t func)
 }
 EXPORT_SYMBOL_GPL(call_rcu_tasks_trace);
 
+void synchronize_rcu_tasks_trace(void)
+{
+	RCU_LOCKDEP_WARN(rcu_scheduler_active == RCU_SCHEDULER_INACTIVE,
+			 "synchronize_rcu_tasks_trace called too soon");
+	wait_rcu_gp(call_rcu_tasks_trace);
+}
+EXPORT_SYMBOL_GPL(synchronize_rcu_tasks_trace);
+
 /* If we are the last reader, wake up the grace-period kthread. */
 void rcu_read_unlock_trace_special(struct task_struct *t)
 {

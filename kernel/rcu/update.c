@@ -470,9 +470,11 @@ EXPORT_SYMBOL_GPL(do_trace_rcu_torture_read);
 
 int rcu_cpu_stall_suppress __read_mostly; /* 1 = suppress stall warnings. */
 int rcu_cpu_stall_timeout __read_mostly = CONFIG_RCU_CPU_STALL_TIMEOUT;
+int rcu_cpu_stall_ftrace_dump __read_mostly; /* 1 = dump ftrace on stall. */
 
 module_param(rcu_cpu_stall_suppress, int, 0644);
 module_param(rcu_cpu_stall_timeout, int, 0644);
+module_param(rcu_cpu_stall_ftrace_dump, int, 0644);
 
 #endif /* #ifdef CONFIG_RCU_STALL_COMMON */
 
