@@ -1568,6 +1568,7 @@ static int check_kprobe_address_safe(struct kprobe *p,
 		goto out;
 	}
 
+#ifdef CONFIG_MODULES
 	/* Get module refcount and reject __init functions for loaded modules. */
 	if (*probed_mod) {
 		/*
@@ -1590,6 +1591,7 @@ static int check_kprobe_address_safe(struct kprobe *p,
 			ret = -ENOENT;
 		}
 	}
+#endif /* CONFIG_MODULES */
 out:
 	preempt_enable();
 	jump_label_unlock();
@@ -2258,6 +2260,7 @@ static int __init populate_kprobe_blacklist(unsigned long *start,
 	return 0;
 }
 
+#ifdef CONFIG_MODULES
 /* Module notifier call back, checking kprobes on the module */
 static int kprobes_module_callback(struct notifier_block *nb,
 				   unsigned long val, void *data)
@@ -2310,6 +2313,7 @@ static struct notifier_block kprobe_module_nb = {
 	.notifier_call = kprobes_module_callback,
 	.priority = 0
 };
+#endif /* CONFIG_MODULES */
 
 /* Markers of _kprobe_blacklist section */
 extern unsigned long __start_kprobe_blacklist[];
@@ -2360,8 +2364,10 @@ static int __init init_kprobes(void)
 	err = arch_init_kprobes();
 	if (!err)
 		err = register_die_notifier(&kprobe_exceptions_nb);
+#ifdef CONFIG_MODULES
 	if (!err)
 		err = register_module_notifier(&kprobe_module_nb);
+#endif
 
 	kprobes_initialized = (err == 0);
 
