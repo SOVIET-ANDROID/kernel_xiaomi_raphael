@@ -65,6 +65,7 @@ static nokprobe_inline bool trace_kprobe_has_gone(struct trace_kprobe *tk)
 	return !!(kprobe_gone(&tk->rp.kp));
 }
 
+#ifdef CONFIG_MODULES
 static nokprobe_inline bool trace_kprobe_within_module(struct trace_kprobe *tk,
 						 struct module *mod)
 {
@@ -72,6 +73,7 @@ static nokprobe_inline bool trace_kprobe_within_module(struct trace_kprobe *tk,
 	const char *name = trace_kprobe_symbol(tk);
 	return strncmp(mod->name, name, len) == 0 && name[len] == ':';
 }
+#endif /* CONFIG_MODULES */
 
 static nokprobe_inline bool trace_kprobe_is_on_module(struct trace_kprobe *tk)
 {
@@ -606,6 +608,7 @@ end:
 	return ret;
 }
 
+#ifdef CONFIG_MODULES
 /* Module notifier call back, checking event on the module */
 static int trace_kprobe_module_callback(struct notifier_block *nb,
 				       unsigned long val, void *data)
@@ -639,6 +642,7 @@ static struct notifier_block trace_kprobe_module_nb = {
 	.notifier_call = trace_kprobe_module_callback,
 	.priority = 1	/* Invoked after kprobe module callback */
 };
+#endif /* CONFIG_MODULES */
 
 /* Convert certain expected symbols into '_' when generating event names */
 static inline void sanitize_event_name(char *name)
@@ -1523,8 +1527,10 @@ static __init int init_kprobe_trace(void)
 	struct dentry *d_tracer;
 	struct dentry *entry;
 
+#ifdef CONFIG_MODULES
 	if (register_module_notifier(&trace_kprobe_module_nb))
 		return -EINVAL;
+#endif
 
 	d_tracer = tracing_init_dentry();
 	if (IS_ERR(d_tracer))
